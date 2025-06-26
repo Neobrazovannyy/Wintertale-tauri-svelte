@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <link rel="icon" href="%sveltekit.assets%/*.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wintertale</title>
+  %sveltekit.head%
+</head>
+<body>
+  <div class="sveltekit_body">%sveltekit.body%</div>
+</body>
+<style>
+  body{
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+  }
+  .sveltekit_body{
+    width: 100%;
+    height: 100%;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+</style>
+</html>
