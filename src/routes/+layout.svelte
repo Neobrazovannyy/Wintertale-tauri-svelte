@@ -46,24 +46,27 @@
   // font
   $absolute_font_family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   $absolute_font_weight: 300;
+  $letter_spacing: 1.6px;
   // color
-  $lite_blue_snow: rgb(63, 85, 118);  
-  $dark_snow: rgb(40, 54, 75);
-  $lite_color: rgb(200, 229, 255);
-  $text_white: rgb(229, 242, 255);  // text
+  $soft_dark_grey_blue: #1b2029;
+  $lite_blue: #91acdb;
+  $text_white: rgb(229, 242, 255);
+
+  $dark_bg: #1b2029;
   // other const
   $width_size: 250px;
 
 
- *{
-    background-color: $dark_snow;
+  *{
+    background-color: $dark_bg;
     color: $text_white;
     font-size: 16px;
     font-family: $absolute_font_family;
     font-weight: $absolute_font_weight;
-    border: 2px solid $lite_color;  /*del*/
+    letter-spacing: $letter_spacing;
+    border: 2px solid $lite_blue;  /*del*/
   }
-  
+
 
   /*=====================*/
   /*==== Window Tabs ====*/
@@ -76,7 +79,7 @@
     font-size: 16px;
   }
 
-  
+
   /*=====================*/
   /*==== Main Window ====*/
   /*=====================*/
@@ -103,7 +106,7 @@
       flex: 1;
     }
   }
-  
+
   /*================*/
   /*==== Footer ====*/
   /*================*/
