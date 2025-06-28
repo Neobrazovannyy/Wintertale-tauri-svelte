@@ -14,8 +14,8 @@
 
     
 onMount(() => {
-    let delay_fall_snowflake: number = 0;
     let duration_fall_snowflake: number = 0;
+    let delay_fall_snowflake: number = 0;
 
     let CreateSnows = ()=>{
 
@@ -23,8 +23,8 @@ onMount(() => {
             /*========================*/
             /*=== Create Snowflake ===*/
             /*========================*/
-            delay_fall_snowflake = getRandomValue(1, 3, false) * 1000;
             duration_fall_snowflake = getRandomValue(6, 8, false) * 1000;
+            delay_fall_snowflake = getRandomValue(1, 3, false) * 1000;
                 
             let el_main_window = document.querySelector(".main_window");
             let el_falling_snow = document.querySelector(".falling_snow");
@@ -32,11 +32,11 @@ onMount(() => {
             el_snowflake .className = "snowflake";
 
             el_main_window.style.position = "relative"; //ignore
-            el_snowflake .style.position = "absolute";
-            el_snowflake .style.borderRadius = "50%";
-            el_snowflake .style.opacity = "0";
-            el_snowflake .style.border = `${getRandomValue(2, 5, true)}px solid rgb(229, 242, 255)`;
-            el_snowflake .style.right = `${getRandomValue(0, 100, false)}%`;
+            el_snowflake.style.position = "absolute";
+            el_snowflake.style.borderRadius = "50%";
+            el_snowflake.style.opacity = "0";
+            el_snowflake.style.border = `${getRandomValue(2, 5, true)}px solid rgb(229, 242, 255)`;
+            el_snowflake.style.right = `${getRandomValue(0, 100, false)}%`;
 
             el_snowflake .animate(
             [
@@ -57,7 +57,7 @@ onMount(() => {
             /*=== Delate Snowflake ===*/
             /*========================*/
             setTimeout(()=>{
-                
+                el_snowflake?.remove();
             }, duration_fall_snowflake+delay_fall_snowflake);
 
         }, delay_fall_snowflake);
@@ -151,17 +151,19 @@ Tutorial. Quick and easy tutorial
 -->
 
 <style lang="scss">
-    /* font */
+    /*==font==*/
     // $absolute_font_family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     // $absolute_font_weight: 300;
-    /* color */
-    $lite_blue_snow: rgb(63, 85, 118);
-    $text_white: rgb(229, 242, 255);  // text
+    /*==color==*/
+        // text
+    $text_white: rgb(229, 240, 255);
+    $text_and_border_lite_blue: #5b7bac;
+        // border
+    // $border_lite_blue: #5C7198;
+        // background
+    $bg_dark_grey: #161b24; // first choice
+    $bg_dark_blue: #172030; // second choice
 
-
-    *{  //del
-        // border: 2px solid $text_white;
-    }
 
     .welcome_window{
         display: flex;
@@ -207,7 +209,7 @@ Tutorial. Quick and easy tutorial
                 
                 .title{
                     font-size: 25px;
-                    color: $lite_blue_snow;
+                    color: $text_and_border_lite_blue;
                     letter-spacing: 2.5px;
                     text-transform: uppercase;
                 }
