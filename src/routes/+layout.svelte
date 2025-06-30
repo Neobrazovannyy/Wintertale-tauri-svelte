@@ -59,6 +59,10 @@
   /*==other const==*/
   $width_size: 250px;
 
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
 
   *{
     background-color: $bg_dark_grey;
@@ -87,10 +91,11 @@
   /*==== Main Window ====*/
   /*=====================*/
   main{
+    flex: 1;
     display: flex;
     flex-direction: row;
     font-size: 50px;
-    flex: 1;
+    min-height: 0; 
 
     .size_menu{
       display: flex;

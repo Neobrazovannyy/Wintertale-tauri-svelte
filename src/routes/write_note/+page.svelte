@@ -103,21 +103,79 @@ A4:
         border: 0px;
         // border: 0px solid $text_and_border_lite_blue;
         border-radius: 5px;
+        scrollbar-width: thin;
+        scrollbar-gutter: stable;
     }
+
+    /*===================*/
+    /*=== Block Write ===*/
+    /*===================*/
 
     .block_write{
         @include style_block_write_read;
         resize: none;
     }
 
-    .block_read{
-        @include style_block_write_read;
-        word-wrap: break-word;;
-    }
-
     .block_write:focus{
         color: $text_white;
         outline: none;
+    }
+    
+    .block_write::-webkit-scrollbar {
+        width: 5px;
+        height: 10px;
+        
+        &:hover{
+            width: 10px;
+        }
+    }
+
+    .block_write::-webkit-scrollbar-track {
+        background: #00000000;
+    }
+
+    .block_write::-webkit-scrollbar-thumb {
+        background-color: rgba(229, 240, 255, 0.2);
+        border-radius: 3px;
+        border: 0px;
+
+        &:hover{
+            background-color: rgba(229, 240, 255, 0.6);
+        }
+    }
+
+    /*===================*/
+    /*=== Block Read ===*/
+    /*===================*/
+
+    .block_read{
+        @include style_block_write_read;
+        word-wrap: break-word;
+        overflow-y: scroll;
+    }
+
+
+    .block_read::-webkit-scrollbar {
+        width: 5px;
+        height: 10px;
+        
+        &:hover{
+            width: 10px;
+        }
+    }
+
+    .block_read::-webkit-scrollbar-track {
+        background: #00000000;
+    }
+
+    .block_read::-webkit-scrollbar-thumb {
+        background-color: rgba(229, 240, 255, 0.2);
+        border-radius: 3px;
+        border: 0px;
+
+        &:hover{
+            background-color: rgba(229, 240, 255, 0.6);
+        }
     }
 
 </style>
