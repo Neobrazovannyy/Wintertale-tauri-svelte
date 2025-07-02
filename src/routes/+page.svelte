@@ -24,25 +24,27 @@ onMount(() => {
             /*=== Create Snowflake ===*/
             /*========================*/
             duration_fall_snowflake = getRandomValue(6, 8, false) * 1000;
-            delay_fall_snowflake = getRandomValue(1, 3, false) * 1000;
+            delay_fall_snowflake    = getRandomValue(1, 3, false) * 1000;
                 
-            let el_main_window = document.querySelector(".main_window");
-            let el_falling_snow = document.querySelector(".falling_snow");
-            let el_snowflake  = document.createElement("div");
-            el_snowflake .className = "snowflake";
+            let el_main_window  = document.querySelector("main.main_window") as HTMLElement || null;
+            let el_falling_snow = document.querySelector(".falling_snow") as HTMLDivElement || null;
+            let el_snowflake = document.createElement("div");
+            el_snowflake.className = "snowflake";
 
-            el_main_window.style.position = "relative"; //ignore
-            el_snowflake.style.position = "absolute";
+            if(el_main_window!=null){
+                el_main_window.style.position = "relative"; //ignore
+            }
+            el_snowflake.style.position     = "absolute";
             el_snowflake.style.borderRadius = "50%";
-            el_snowflake.style.opacity = "0";
-            el_snowflake.style.border = `${getRandomValue(2, 5, true)}px solid rgb(229, 242, 255)`;
-            el_snowflake.style.right = `${getRandomValue(0, 100, false)}%`;
+            el_snowflake.style.opacity      = "0";
+            el_snowflake.style.border       = `${getRandomValue(2, 5, true)}px solid rgb(229, 242, 255)`;
+            el_snowflake.style.right        = `${getRandomValue(0, 100, false)}%`;
 
-            el_snowflake .animate(
+            el_snowflake.animate(
             [
-                { top: "0%", opacity: 0, offset: 0 },
-                { opacity: 1, offset: 0.6 },
-                { top: "100%", opacity: 0, offset: 1 }
+                { top: "0%",    opacity: 0, offset: 0   },
+                {               opacity: 1, offset: 0.6 },
+                { top: "100%",  opacity: 0, offset: 1   }
             ], {
                 duration: duration_fall_snowflake,
                 easing: "linear",
@@ -51,7 +53,7 @@ onMount(() => {
             });
     
 
-            el_falling_snow?.appendChild(el_snowflake );
+            el_falling_snow?.appendChild(el_snowflake);
                 
             /*========================*/
             /*=== Delate Snowflake ===*/
@@ -63,8 +65,28 @@ onMount(() => {
         }, delay_fall_snowflake);
 
     }
+
+    // let PopSnowflake = ()=>{
+    //     let arr_snowflake = Array.from(document.querySelectorAll(".snowflake")) as HTMLDivElement[];
+
+    //     arr_snowflake.map((item_snowflake: HTMLDivElement)=>{
+    //         item_snowflake.addEventListener("click", ()=>{
+
+    //             item_snowflake.animate(
+    //             [
+    //                 { opacity: 0, offset: 1 }
+    //             ], {
+    //                 duration: 1,
+    //                 easing: "linear",
+    //                 fill: "forwards",
+    //             });
+
+    //         });
+    //     });
+    // }
     
     CreateSnows();
+    // PopSnowflake();
 });
 </script>
 

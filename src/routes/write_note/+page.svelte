@@ -1,6 +1,6 @@
 <script lang="ts">
     // let m_textarea_text: string = $state("");
-    let m_count_input: number = $state(0);
+    // let m_count_input: number = $state(0);
     let m_textarea_id: string[] = $state(["textarea_id_1"]);
 
     function L(description: string = "", variable: string): void {
@@ -20,8 +20,12 @@
     /*======================*/
     async function CheckTypeElement(id_name_element: string): Promise<void> {
 
-        let Symbol = async (el_textarea: HTMLTextAreaElement | null): Promise<void> =>{
-            await CheckTypeList(el_textarea);
+        let el_textarea = document.querySelector(`#${id_name_element}`) as HTMLTextAreaElement | null;
+        let cursor_pos_start: number = el_textarea?.selectionStart || 0;
+
+
+        let Symbol = async (el_textarea: HTMLTextAreaElement | null, cursor_pos_start: number): Promise<void> =>{
+            await CheckTypeList(el_textarea, cursor_pos_start);
         }
 
         let Line = async (id_name_element: string): Promise<void> =>{
@@ -32,56 +36,47 @@
             
         }
 
-        if(m_count_input>=15)
-        {
-            let el_textarea = document.querySelector(`#${id_name_element}`) as HTMLTextAreaElement | null;
-            let cursor_pos_start: number = el_textarea?.selectionStart || 0;
-
-            await Symbol(el_textarea, cursor_pos_start);
-            await Line(id_name_element);    //! el_textarea
-            await Block(id_name_element);   //! el_textarea
-            m_count_input=0;
-        }
-        else
-        {
-            m_count_input++;
-        }
+        await Symbol(el_textarea, cursor_pos_start);
+        await Line(id_name_element);    //! el_textarea
+        await Block(id_name_element);   //! el_textarea
     }
 
     async function CheckTypeList(el_textarea: HTMLTextAreaElement | null, cursor_pos_start: number): Promise<void> {
-        let sub_text_textarea: string = "";
+        let sub_string_textarea: string = el_textarea?.value.slice(cursor_pos_start-4, cursor_pos_start) || "";
 
-        let len_string_number_list: number = 15+4   // (<call frequency> + "\n - ".length)
-        sub_text_textarea = el_textarea?.value.slice(0-len_string_number_list) || "";
-
-        L("sub_text_textarea", sub_text_textarea);
-
-        let NumberedList=(): void=>{
-            for(let index=0; index<len_string_number_list; index++) {
-                if(
-                    sub_text_textarea[index+0] == '\n' &&
-                    sub_text_textarea[index+1] == ' '  &&   // to "\t"
-                    sub_text_textarea[index+2] == '-'  &&   // to "&#149;"
-                    sub_text_textarea[index+3] == ' '
-                ){
-                    if(el_textarea!=null){
-                        el_textarea.value=
-                            el_textarea.value.slice(cursor_pos_start+0, 0-len_string_number_list+index+1) +  // start, for("\n")
-                            "   " +
-                            ConvertToHTML("&#149;") +
-                            " " +
-                            el_textarea.value.slice(0-len_string_number_list+index+4);
-                    }
+        let DotList=(): void=>{
+            // check string = "\n - "
+            if(
+                sub_string_textarea[0] == "\n" &&
+                sub_string_textarea[1] == " "  &&   // to "\t"
+                sub_string_textarea[2] == "-"  &&   // to "&#149;"
+                sub_string_textarea[3] == " "
+            )
+            {
+                if(el_textarea!=null){
+                    el_textarea.value =
+                        el_textarea.value.slice(0, cursor_pos_start-4) +
+                        "\n" +
+                        "   " +
+                        ConvertToHTML("&#149;") +
+                        " " +
+                        el_textarea.value.slice(cursor_pos_start);
+                    
+                        el_textarea.selectionEnd = cursor_pos_start+2;
                 }
             }
         }
 
-        let DotList=(): void=>{
+        let NumberedList=(): void=>{
 
         }
         
+        
+        if(sub_string_textarea[2] == "-"){
+            await DotList();
+        }
+
         await NumberedList();
-        await DotList();
     }
     
 
