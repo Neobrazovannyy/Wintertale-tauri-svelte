@@ -35,6 +35,8 @@
     <!-- Wintertale -->
     {@render children()}
   </div>
+
+  <input type="text" class="mini_console" placeholder="CTRL+SHIFT">
 </main>
 
 <!-- Footer -->
@@ -113,6 +115,19 @@
     .main_window{
       flex: 1;
     }
+
+    .mini_console{
+      position: absolute;
+      right: 0;
+      bottom: 25px;
+      height: 20px;
+
+      &:focus{
+        outline: none;
+        box-shadow: none;
+      }
+    }
+
   }
 
   /*================*/
