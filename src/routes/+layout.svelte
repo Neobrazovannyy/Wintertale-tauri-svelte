@@ -36,7 +36,6 @@
     {@render children()}
   </div>
 
-  <input type="text" class="mini_console" placeholder="CTRL+SHIFT">
 </main>
 
 <!-- Footer -->
@@ -116,17 +115,17 @@
       flex: 1;
     }
 
-    .mini_console{
-      position: absolute;
-      right: 0;
-      bottom: 25px;
-      height: 20px;
+    // .mini_console{
+    //   position: absolute;
+    //   right: 0;
+    //   bottom: 25px;
+    //   height: 20px;
 
-      &:focus{
-        outline: none;
-        box-shadow: none;
-      }
-    }
+    //   &:focus{
+    //     outline: none;
+    //     box-shadow: none;
+    //   }
+    // }
 
   }
 
