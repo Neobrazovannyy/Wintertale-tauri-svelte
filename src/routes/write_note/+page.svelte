@@ -13,7 +13,7 @@ onMount(()=>{
         {
             if(event.ctrlKey && event.shiftKey && event.code === "Space")
             {
-                // L("==================")
+                // L("==================") 
                 // L("startContainer", window.getSelection()?.getRangeAt(0)?.startContainer);
                 // L("startOffset", window.getSelection()?.getRangeAt(0)?.startOffset);
                 // L("endOffset", window.getSelection()?.getRangeAt(0)?.endOffset);
