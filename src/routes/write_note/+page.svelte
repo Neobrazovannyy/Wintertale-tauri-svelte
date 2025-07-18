@@ -1,64 +1,202 @@
 <script lang="ts">
     import { onMount } from "svelte";
+    let g_block_write_El: HTMLDivElement;
+    let g_mini_console_El: HTMLInputElement;
+    let g_focus_block: string = $state("block_write");
 
-onMount(()=>{
-    let m_block_write_El: HTMLDivElement = document.querySelector(".block_write") as HTMLDivElement;
-    let m_mini_console_El: HTMLInputElement =  document.querySelector(".mini_console") as HTMLInputElement;
-    let m_focus_block: HTMLDivElement | HTMLInputElement = $state(m_block_write_El);
+    // let g_select_text: string = $state("");
+    let g_cursor_pos_symbol: number = $state(0);
+    let g_cursor_pos_word: number = $state(0);
+    let g_tree_block_write: TreeWalker | null = $state(null);
 
+
+    function LoadElementDOM(): void {
+        g_block_write_El    = document.querySelector(".block_write")    as HTMLDivElement;
+        g_mini_console_El   = document.querySelector(".mini_console")   as HTMLInputElement;
+
+        g_block_write_El.addEventListener("click", ClickFieldBlockWrite);
+        g_mini_console_El.addEventListener("keydown", EnteredCommandIntoMiniConsole);
+    }
+    onMount(LoadElementDOM);
+
+    //================================================================================ Hotkey & Rendering
     
-    //================================================================================ Hotkey
-    $effect(()=>{
-        window.addEventListener("keydown", (event)=>
+    // If you click on a field (block_write), it is in the focus variable (g_focus_block)
+    function ClickFieldBlockWrite(): void {
+        if(g_focus_block==="mini_console")
         {
-            if(event.ctrlKey && event.shiftKey && event.code === "Space")
-            {
-                // L("==================") 
-                // L("startContainer", window.getSelection()?.getRangeAt(0)?.startContainer);
-                // L("startOffset", window.getSelection()?.getRangeAt(0)?.startOffset);
-                // L("endOffset", window.getSelection()?.getRangeAt(0)?.endOffset);
-                // L("------------------")
-                // L("anchorNode", window.getSelection()?.anchorNode);
-                // L("toString", window.getSelection()?.toString());
-                // L("endOffset", window.getSelection()?.anchorOffset);
-                // L("focusOffset", window.getSelection()?.focusOffset);
-                
-                L("startContainer", window.getSelection()?.toString());
-                L("startContainer", window.getSelection()?.getRangeAt(0)?.startOffset);
-                L("startContainer", window.getSelection()?.toString()?.length);
-
-                // focus moves to the object: "mini console"
-                if(m_focus_block instanceof HTMLDivElement)
-                {
-                    m_mini_console_El.focus();
-                    m_focus_block = m_mini_console_El;
-                }
-                // focus moves to the object: "block write"
-                else if(m_focus_block instanceof HTMLInputElement)
-                {
-                    m_block_write_El.focus();
-                    // m_block_write_El.selectionStart = m_cursor_pos_textarea;
-                    m_mini_console_El.value = "";
-                    m_focus_block = m_block_write_El;
-                }
-
-            }
-        });
-    });
-
-});
-    //================================================================================ Helper functions
+            g_focus_block = "block_write";   //? document.activeElement
+        }
+    }
     
-    function L(description: string="", variable: unknown=""): void {
+    // Key down: CTRL + SHIFT + SPACE;
+    function CheckHotkey(event: KeyboardEvent) {
+        if(event.ctrlKey && event.shiftKey && event.code==="Space")
+        {
+            // focus moves to the object: "mini console"
+            if(g_focus_block==="block_write")
+            {
+                SelectFocusElement(false);
+            }
+            // focus moves to the object: "block write"
+            else if(g_focus_block==="mini_console")
+            {
+                SelectFocusElement(true);
+            }
+
+        }
+    }
+    window.addEventListener("keydown", CheckHotkey);
+
+
+    //-------------------------------------------------------------------------------- Focus Element
+    function SelectFocusElement(focus_element: boolean): void {
+        // true => "block write"
+        if(focus_element){
+            g_block_write_El.focus();
+            SetCursorPosition();
+            g_focus_block="block_write";
+        }
+        // false => "mini console"
+        else{
+            SetVariableCursorPosition();
+            SetVariableTextSelect();
+            g_mini_console_El.focus();
+            g_focus_block = "mini_console";
+        }
+    }
+
+
+    //-------------------------------------------------------------------------------- Enter Text Into Mini Console
+    function EnteredCommandIntoMiniConsole(event: KeyboardEvent): void {
+        if(event.code!=="Enter") return;
+        
+        event.preventDefault();
+        event.stopPropagation();
+
+        let arr_console_command: string[] = g_mini_console_El.value.split(" ");
+        L(arr_console_command);
+        
+        SelectFocusElement(true);
+    }
+
+
+    //-------------------------------------------------------------------------------- Set Global Variable
+
+    function SetVariableTextSelect(): void {
+        if(!window.getSelection()?.isCollapsed){
+            g_select_text=window.getSelection()?.toString() || "";
+        }
+    }
+
+    // Finding and Set the value cursor position
+    function SetVariableCursorPosition(): void {
+        let select_el: Selection = window.getSelection()!;
+        let range_line: Range = select_el.getRangeAt(0);
+
+        let range_global: Range = range_line.cloneRange();
+        range_global.selectNodeContents(g_block_write_El);  //select all text
+        range_global.setEnd(range_line.endContainer, range_line.endOffset);
+
+        g_cursor_pos_symbol = range_global.toString().length;
+        g_cursor_pos_word = range_global.toString().split(/\b/).length;
+    }
+
+    // Set the cursor
+    function SetCursorPosition(cursor_position: number = g_cursor_pos_symbol, element_focus: Element = g_block_write_El): void {
+        SetVariableTreeWalker();
+
+        let count_symbol: number = 0;
+
+        let current_node : Text | null;
+        while((current_node = g_tree_block_write?.nextNode() as Text | null)){
+            let str_current_node: string = current_node.nodeValue ?? "";
+            let length_str_current_node = str_current_node.length;
+
+            if(count_symbol+length_str_current_node >= cursor_position){
+                let position_current_node: number = cursor_position-count_symbol;
+
+                let new_range: Range = document.createRange();
+                new_range.setStart(current_node, position_current_node);
+                new_range.collapse(true);
+                
+                let select_el = window.getSelection();
+                if(select_el){
+                    select_el.removeAllRanges();
+                    select_el.addRange(new_range);
+                }
+
+                return;
+            }
+            count_symbol+=length_str_current_node;
+        }
+
+    }
+
+    // Create TreeWalker
+    function SetVariableTreeWalker(element_focus: Element = g_block_write_El): void {
+        g_tree_block_write = document.createTreeWalker(
+            element_focus,
+            NodeFilter.SHOW_TEXT,
+            null
+        );
+    }
+
+    
+    //================================================================================ Handle Function
+
+    //-------------------------------------------------------------------------------- Input
+    function HandleBlurInput(): void {
+        g_mini_console_El.value = "";
+    }
+    
+    //-------------------------------------------------------------------------------- Block Write
+    function HandleInputBlockWrite(): void {
+        // let text_content: string = g_block_write_El.innerText?.slice(-4) ?? "";
+
+        // if(text_content == "\n - "){
+        //     L("ConvertListDot");
+        //     ConvertListDot();
+        // }
+    }
+    
+    
+    //================================================================================ Convert Text
+
+    //-------------------------------------------------------------------------------- Bold & Italic Font
+    function ConvertTextToBoldFont(): void {
+
+    }
+
+    //-------------------------------------------------------------------------------- List Dot
+    function ConvertListDot(cursor_position: number = g_cursor_pos_symbol): void {   // '\n' + ' ' + '-' + ' ' => char[4]
+        // SetVariableTreeWalker();
+        // SetVariableCursorPosition();
+
+        // let text_content: string = g_block_write_El.innerText;
+        // L(text_content);
+
+    }
+
+    
+    //================================================================================ Helper functions (can be safely removed)
+    
+    function L(variable: unknown): void {
+        console.log(variable);
+    }
+
+    function LV(description: string="", variable: unknown=""): void {
         console.log(`${description}: ${variable}`);
     }
 
+    // "&#149;"
     function ConvertToHTML(html_string: string): string {
         const doc: Document = new DOMParser().parseFromString(html_string, 'text/html');
         return doc.documentElement.textContent || "";
     }
 
 </script>
+
 
 <!-- ! on:paste={when input data}, you need to check the data for special characters! -->
 <div class="record_field">
@@ -67,12 +205,14 @@ onMount(()=>{
         class="block_write"
         contenteditable="true" 
         autofocus
+        on:input={HandleInputBlockWrite}
     ></div>
 
     <input
         class="mini_console"
         type="text"
         placeholder="CTRL+SHIFT+SPACE"
+        on:blur={HandleBlurInput}
     >
 
 </div>
