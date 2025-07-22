@@ -4,7 +4,7 @@
     let g_mini_console_El: HTMLInputElement;
     let g_focus_block: string = $state("block_write");
 
-    // let g_select_text: string = $state("");
+    let g_select_text: string = $state("");
     let g_cursor_pos_symbol: number = $state(0);
     let g_cursor_pos_word: number = $state(0);
     let g_tree_block_write: TreeWalker | null = $state(null);
@@ -60,7 +60,8 @@
         // false => "mini console"
         else{
             SetVariableCursorPosition();
-            SetVariableTextSelect();
+            // SetVariableTextSelect();
+            g_mini_console_El.value="";
             g_mini_console_El.focus();
             g_focus_block = "mini_console";
         }
@@ -70,24 +71,50 @@
     //-------------------------------------------------------------------------------- Enter Text Into Mini Console
     function EnteredCommandIntoMiniConsole(event: KeyboardEvent): void {
         if(event.code!=="Enter") return;
+
+        SetVariableTreeWalker();
         
         event.preventDefault();
         event.stopPropagation();
 
         let arr_console_command: string[] = g_mini_console_El.value.split(" ");
-        L(arr_console_command);
         
+        /*====================================*/
+        /*========== Select command ==========*/
+        /*====================================*/
+
+        /*====== Header of N-th order ======*/
+        if(arr_console_command[0]==="h"){
+            // incorrect command
+            if(
+                arr_console_command.length != 2 ||
+                !["1","2","3","4","5","6"].includes(arr_console_command[1])
+            ){
+                SelectFocusElement(true);
+                g_mini_console_El.value = "help: h [1..5]";
+            }
+            // call function
+            else{
+                ConvertTextToHeader(arr_console_command[1]);
+            }
+        }
+        /*====== Command error ======*/
+        else{
+            SelectFocusElement(true);
+            g_mini_console_El.value = "Command was not found";
+        }
+
         SelectFocusElement(true);
     }
 
 
     //-------------------------------------------------------------------------------- Set Global Variable
 
-    function SetVariableTextSelect(): void {
-        if(!window.getSelection()?.isCollapsed){
-            g_select_text=window.getSelection()?.toString() || "";
-        }
-    }
+    // function SetVariableTextSelect(): void {
+    //     if(!window.getSelection()?.isCollapsed){
+    //         g_select_text=window.getSelection()?.toString() || "";
+    //     }
+    // }
 
     // Finding and Set the value cursor position
     function SetVariableCursorPosition(): void {
@@ -104,14 +131,13 @@
 
     // Set the cursor
     function SetCursorPosition(cursor_position: number = g_cursor_pos_symbol, element_focus: Element = g_block_write_El): void {
-        SetVariableTreeWalker();
+        // SetVariableTreeWalker();
 
         let count_symbol: number = 0;
-
         let current_node : Text | null;
+
         while((current_node = g_tree_block_write?.nextNode() as Text | null)){
-            let str_current_node: string = current_node.nodeValue ?? "";
-            let length_str_current_node = str_current_node.length;
+            let length_str_current_node = current_node.nodeValue?.length ?? 0;
 
             if(count_symbol+length_str_current_node >= cursor_position){
                 let position_current_node: number = cursor_position-count_symbol;
@@ -163,6 +189,31 @@
     
     //================================================================================ Convert Text
 
+    //-------------------------------------------------------------------------------- Header
+    function ConvertTextToHeader(order_header: string): void {
+        let count_symbol: number = 0;
+        let current_node: Text | null;
+
+        while((current_node=g_tree_block_write?.nextNode() as Text | null)){
+            let length_current_node: number = current_node.nodeValue?.length ?? 0;
+
+            L("--------------------------------");
+            LV("GLOBAL", g_cursor_pos_symbol);
+            LV("Node", current_node.nodeValue);
+            LV("count...", count_symbol);
+
+            count_symbol-1;
+            if(count_symbol>=g_cursor_pos_symbol){
+                let new_node: HTMLElement = document.createElement(`h${order_header}`);
+                new_node.textContent = current_node.nodeValue ?? "";
+                current_node.parentNode?.replaceChild(new_node, current_node);
+
+                return;
+            }
+            count_symbol+=length_current_node+1;
+        }
+    }
+
     //-------------------------------------------------------------------------------- Bold & Italic Font
     function ConvertTextToBoldFont(): void {
 
@@ -170,12 +221,6 @@
 
     //-------------------------------------------------------------------------------- List Dot
     function ConvertListDot(cursor_position: number = g_cursor_pos_symbol): void {   // '\n' + ' ' + '-' + ' ' => char[4]
-        // SetVariableTreeWalker();
-        // SetVariableCursorPosition();
-
-        // let text_content: string = g_block_write_El.innerText;
-        // L(text_content);
-
     }
 
     
