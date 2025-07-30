@@ -23,7 +23,7 @@
         g_block_write_El.addEventListener("click", ClickFieldBlockWrite);
         g_mini_console_El.addEventListener("keydown", EnteredCommandIntoMiniConsole);
 
-        SetVariableTreeWalker();
+        // SetVariableTreeWalker();
     }
     onMount(LoadElementDOM);
 
@@ -45,12 +45,12 @@
             // focus moves to the object: "mini console"
             if(g_focus_block==="block_write")
             {
-                SelectFocusElement("mini_console");
+                SelectFocusElementSetTreeWSetCurPos("mini_console");
             }
             // focus moves to the object: "block write"
             else if(g_focus_block==="mini_console")
             {
-                SelectFocusElement("block_write");
+                SelectFocusElementSetTreeWSetCurPos("block_write");
             }
 
         }
@@ -60,7 +60,8 @@
 
     //--------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Focus Element ---
-    function SelectFocusElement(focus_element: string, clear_field: boolean = true): void {
+    //? rename SelectFocusElement
+    function SelectFocusElementSetTreeWSetCurPos(focus_element: string, clear_field: boolean = true): void {
         if(focus_element==="block_write"){
             g_block_write_El.focus();
             SetCursorPosition();
@@ -69,7 +70,6 @@
         else if(focus_element==="mini_console"){
             SetVariableTreeWalker();
             SetVariableCursorPosition();
-            // SetVariableTextSelect();
             if(clear_field){
                 g_mini_console_El.value="";
             }
@@ -77,6 +77,44 @@
             g_focus_block = "mini_console";
         }
     }
+
+    //-----------------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------- Enter Text Into Mini Console ---
+    function EnteredCommandIntoMiniConsole(event: KeyboardEvent): void {
+        if(event.code!=="Enter") return;
+
+        // SetVariableTreeWalker();
+        
+        event.preventDefault();
+        event.stopPropagation();
+
+        let arr_console_command: string[] = g_mini_console_El.value.split(" ");
+
+        /*============ Header of N-th order ============*/
+        if(arr_console_command[0]==="h"){
+            /*----- <h1>...<h6> -----*/
+            if(
+                arr_console_command.length != 2 ||
+                !["1","2","3","4","5","6"].includes(arr_console_command[1])
+            ){
+                g_mini_console_El.value = "help: h [1..6]";
+            }
+            else{
+                FindAndConvertLineInTreeDOM(ConvertTextToHeader, arr_console_command[1]);
+            }
+        }
+        /*============ Command error ============*/
+        else{
+            g_mini_console_El.value = "Command was not found";
+        }
+
+
+        setTimeout(()=>{
+            g_mini_console_El.value = "CTRL+SHIFT+SPACE";
+        }, 700);
+        SelectFocusElementSetTreeWSetCurPos("block_write", false);
+    }
+
 
     //---------------------------------------------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Find Line in TreeWalker and Function Convert Call  ---
@@ -92,7 +130,6 @@
             if(count_symbol+length_str_current_node >= g_cursor_pos_symbol.position)
             {
                 let new_range: Range = document.createRange();
-                new_range.collapse(true);
                 if(g_cursor_pos_symbol.start)
                 {
                     g_tree_block_write?.nextNode();
@@ -109,51 +146,11 @@
                     select_el.addRange(new_range);
                 }
 
+                g_tree_block_write.currentNode = g_block_write_El;
                 return;
             }
             count_symbol+=length_str_current_node;
         }
-    }
-
-
-    //-----------------------------------------------------------------------------------------------------------------
-    //-------------------------------------------------------------------------------- Enter Text Into Mini Console ---
-    function EnteredCommandIntoMiniConsole(event: KeyboardEvent): void {
-        if(event.code!=="Enter") return;
-
-        SetVariableTreeWalker();
-        
-        event.preventDefault();
-        event.stopPropagation();
-
-        let arr_console_command: string[] = g_mini_console_El.value.split(" ");
-
-        /*============ Header of N-th order ============*/
-        if(arr_console_command[0]==="h"){
-            /*----- <h1>...<h6> -----*/
-            if(
-                arr_console_command.length != 2 ||
-                !["1","2","3","4","5","6"].includes(arr_console_command[1])
-            ){
-                SetCursorPosition();
-                g_mini_console_El.value = "help: h [1..6]";
-            }
-            else{
-                FindAndConvertLineInTreeDOM(ConvertTextToHeader, arr_console_command[1]);
-            }
-        }
-        /*============ Command error ============*/
-        else{
-            SetCursorPosition();
-            g_mini_console_El.value = "Command was not found";
-        }
-
-
-        setTimeout(()=>{
-            g_mini_console_El.value = "CTRL+SHIFT+SPACE";
-        }, 700);
-        SelectFocusElement("block_write", false);
-        SetCursorPosition();
     }
 
 
@@ -196,6 +193,7 @@
             if(current_node.nodeType===Node.TEXT_NODE)
             {
                 let length_str_current_node = current_node.nodeValue?.length ?? 0;
+                L(current_node);
 
                 if(count_symbol+length_str_current_node >= g_cursor_pos_symbol.position)
                 {
@@ -221,6 +219,8 @@
                         select_el.addRange(new_range);
                     }
 
+                    g_tree_block_write.currentNode = g_block_write_El;
+                    L(current_node);
                     return;
                 }
                 count_symbol+=length_str_current_node;
@@ -255,44 +255,31 @@
     //-------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Header ---
     function ConvertTextToHeader(node_tree: Node, order_header: string): void {
-        /*
-            <h1>    2em (≈32px)
-            <h2>    1.5em (≈24px)
-            <h3>    1.17em (≈18.72px)
-            <h4>    1em (≈16px)
-            <h5>    0.83em (≈13.28px)
-            <h6>    0.67em (≈10.72px)
-        */
         if(node_tree.parentElement){
+            let parent_element = node_tree.parentElement;
             if(order_header==="1"){
-                node_tree.parentElement.style.fontSize = "32px";
-                node_tree.parentElement.style.fontWeight = "600";
-                node_tree.parentElement.style.paddingBottom = "10px";
+                parent_element.style.fontSize = "40px";
+                parent_element.style.fontWeight = "600";
             }
             else if(order_header==="2"){
-                node_tree.parentElement.style.fontSize = "24px";
-                node_tree.parentElement.style.fontWeight = "600";
-                node_tree.parentElement.style.paddingBottom = "10px";
+                parent_element.style.fontSize = "32px";
+                parent_element.style.fontWeight = "600";
             }
             else if(order_header==="3"){
-                node_tree.parentElement.style.fontSize = "18.72px";
-                node_tree.parentElement.style.fontWeight = "600";
-                node_tree.parentElement.style.paddingBottom = "10px";
+                parent_element.style.fontSize = "24px";
+                parent_element.style.fontWeight = "600";
             }
             else if(order_header==="4"){
-                node_tree.parentElement.style.fontSize = "16px";
-                node_tree.parentElement.style.fontWeight = "600";
-                node_tree.parentElement.style.paddingBottom = "10px";
+                parent_element.style.fontSize = "20px";
+                parent_element.style.fontWeight = "600";
             }
             else if(order_header==="5"){
-                node_tree.parentElement.style.fontSize = "13.28px";
-                node_tree.parentElement.style.fontWeight = "600";
-                node_tree.parentElement.style.paddingBottom = "10px";
+                parent_element.style.fontSize = "16px";
+                parent_element.style.fontWeight = "600";
             }
             else if(order_header==="6"){
-                node_tree.parentElement.style.fontSize = "10.72px";
-                node_tree.parentElement.style.fontWeight = "600";
-                node_tree.parentElement.style.paddingBottom = "10px";
+                parent_element.style.fontSize = "14px";
+                parent_element.style.fontWeight = "600";
             }
         }
     }
