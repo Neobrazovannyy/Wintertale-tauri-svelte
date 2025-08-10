@@ -1,4 +1,5 @@
 <script lang="ts">
+    import type { ChannelNameHwb } from "sass";
     import { onMount } from "svelte";
     let g_block_write_El: HTMLDivElement;
     let g_mini_console_El: HTMLInputElement;
@@ -15,7 +16,14 @@
         start: false
     });
 
+    interface TargetNodeForConvert {
+        node: Node;
+        flag: string;
+    }
 
+    
+    //==============================================================================================
+    //================================================================================ Load Page ===
     function LoadElementDOM(): void {
         g_block_write_El    = document.querySelector(".block_write")    as HTMLDivElement;
         g_mini_console_El   = document.querySelector(".mini_console")   as HTMLInputElement;
@@ -35,9 +43,19 @@
     function SetVariableTreeWalker(element_focus: Element = g_block_write_El): void {
         g_tree_block_write = document.createTreeWalker(
             element_focus,
-            // NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
-            NodeFilter.SHOW_TEXT,
-            null
+            NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+            // NodeFilter.SHOW_TEXT,
+            //! ADD FILTER
+            {
+                acceptNode(node) {
+                    if(node instanceof HTMLDivElement){
+                        return NodeFilter.FILTER_SKIP;
+                    }
+                    else{
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                }
+            }
         );
     }
     
@@ -47,11 +65,11 @@
         let range_line: Range = select_el.getRangeAt(0);
 
         let range_global: Range = range_line.cloneRange();
-        range_global.selectNodeContents(g_block_write_El);  //select all text
+        range_global.selectNodeContents(g_block_write_El);
         range_global.setEnd(range_line.endContainer, range_line.endOffset);
 
         g_cursor_pos_symbol={
-            position: range_global.toString().length,
+            position: range_global.toString()!="" ? range_global.toString().length : 0,
             start: range_line.endOffset==0 ? true : false
         }
     }
@@ -66,39 +84,36 @@
         while(g_tree_block_write?.nextNode())
         {
             current_node = g_tree_block_write.currentNode ?? null;
-            if(current_node.nodeType===Node.TEXT_NODE)
+            let length_str_current_node = current_node.nodeValue?.length ?? 0;
+
+            if(count_symbol+length_str_current_node >= g_cursor_pos_symbol.position)
             {
-                let length_str_current_node = current_node.nodeValue?.length ?? 0;
-
-                if(count_symbol+length_str_current_node >= g_cursor_pos_symbol.position)
+                let position_on_line: number = 0;
+                let new_range: Range = document.createRange();
+                new_range.collapse(true);
+                if(g_cursor_pos_symbol.start && g_cursor_pos_symbol.position!=0)
                 {
-                    let position_on_line: number = 0;
-                    let new_range: Range = document.createRange();
-                    new_range.collapse(true);
-                    if(g_cursor_pos_symbol.start)
-                    {
-                        g_tree_block_write?.nextNode();
-                        current_node = g_tree_block_write.currentNode ?? null;
-                        position_on_line=0;
-                    }
-                    else{
-                        position_on_line=g_cursor_pos_symbol.position-count_symbol;
-                    }
-
-                    new_range.setStart(current_node, position_on_line);
-                    
-
-                    let select_el = window.getSelection();
-                    if(select_el){
-                        select_el.removeAllRanges();
-                        select_el.addRange(new_range);
-                    }
-
-                    g_tree_block_write.currentNode = g_block_write_El;
-                    return;
+                    g_tree_block_write?.nextNode();
+                    current_node = g_tree_block_write.currentNode ?? null;
+                    position_on_line=0;
                 }
-                count_symbol+=length_str_current_node;
+                else{
+                    position_on_line=g_cursor_pos_symbol.position-count_symbol;
+                }
+
+                new_range.setStart(current_node, position_on_line);
+                
+
+                let select_el = window.getSelection();
+                if(select_el){
+                    select_el.removeAllRanges();
+                    select_el.addRange(new_range);
+                }
+
+                g_tree_block_write.currentNode = g_block_write_El;
+                return;
             }
+            count_symbol+=length_str_current_node;
         }
     }
 
@@ -169,27 +184,47 @@
 
         let wit_console_command: string = g_mini_console_El.value;
 
+        /*==============================================*/
         /*============ Header of N-th order ============*/
+        /*==============================================*/
         if(wit_console_command[0]==="h"){
             /*----- <h1>...<h6> -----*/
             if(
                 wit_console_command.length === 2 &&
-                ["0", "1","2","3","4","5","6"].includes(wit_console_command[1])
+                ["/", "1","2","3","4","5","6"].includes(wit_console_command[1])
             ){
                 FindAndConvertLineInTreeDOM(ConvertLineTextToHeader, wit_console_command[1]);
             }
         }
+        /*==============================*/
         /*============ List ============*/
+        /*==============================*/
         else if(wit_console_command[0]==="l"){
             /*----- dot, number -----*/
             if(
                 wit_console_command.length === 2 &&
-                ["0", "d", "n"].includes(wit_console_command[1])
+                ["/", "d", "n"].includes(wit_console_command[1])
             ){
                 FindAndConvertLineInTreeDOM(ConvertLineTextToList, wit_console_command[1]);
             }
         }
-        else if(wit_console_command[0]==="0"){
+        /*=========================================*/
+        /*============ Half a new line ============*/
+        /*=========================================*/
+        else if(wit_console_command.slice(0,2)==="nl"){
+            /*----- dot, number -----*/
+            if(wit_console_command.length <= 2){
+                FindAndConvertLineInTreeDOM(ConvertLineTextToAddNewLine, "1");
+            }
+            else{
+                FindAndConvertLineInTreeDOM(ConvertLineTextToAddNewLine, wit_console_command[2]);
+            }
+ 
+        }
+        /*======================================*/
+        /*============ Delete Style ============*/
+        /*======================================*/
+        else if(wit_console_command[0]==="/"){
             if(wit_console_command.length===1){
                 FindAndConvertLineInTreeDOM(ConvertLineTextDeleteStyle);
             }
@@ -201,11 +236,12 @@
 
     //---------------------------------------------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Find Line in TreeWalker and Function Convert Call  ---
-    function FindAndConvertLineInTreeDOM(CallFunc: (node_tree: Node, special_parameter: string)=> void, parameter_func: string = ""): void {
+    function FindAndConvertLineInTreeDOM(CallFunc: (i_target: TargetNodeForConvert)=> void, parameter_func: string = ""): void {
         SetVariableTreeWalker();
 
         let count_symbol: number = 0;
         let current_node: Node | null;
+        let i_target: TargetNodeForConvert;
 
         while(g_tree_block_write?.nextNode())
         {
@@ -215,14 +251,18 @@
             if(count_symbol+length_str_current_node >= g_cursor_pos_symbol.position)
             {
                 let new_range: Range = document.createRange();
-                if(g_cursor_pos_symbol.start)
+                if(g_cursor_pos_symbol.start && g_cursor_pos_symbol.position!=0)
                 {
                     g_tree_block_write?.nextNode();
                     current_node = g_tree_block_write.currentNode ?? null;
                 }
 
+                i_target={
+                    node: current_node,
+                    flag: parameter_func
+                }
                 /*-----------------------------------*/
-                CallFunc(current_node, parameter_func);
+                CallFunc(i_target);
                 /*-----------------------------------*/
 
                 let select_el = window.getSelection();
@@ -259,67 +299,78 @@
 
     //--------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- DEL ALL Style ---
-    function ConvertLineTextDeleteStyle(node_tree: Node): void{
-        if(node_tree.parentElement){
-            let node_content = node_tree?.textContent ?? "";
-            let parent_element = node_tree.parentElement;
+    function ConvertLineTextDeleteStyle(i_target: TargetNodeForConvert): void{
+        if(i_target.node.parentElement){
+            let node_content = i_target.node?.textContent ?? "";
+            let parent_element = i_target.node.parentElement;
 
+            // delete: title
             parent_element.style.fontSize = "16px";
             parent_element.style.fontWeight = "300";
-            parent_element.style.paddingLeft = "0px";
-            if(node_content[0]==="•"){
-                if(node_content[1]===" "){
-                    parent_element.textContent = parent_element.textContent.slice(2);
-                }
-                else{
-                    parent_element.textContent = parent_element.textContent.slice(1);
+            // delete: list
+            parent_element.style.padding = "0px";
+            // delete: dot list
+            if(node_content[0]==="•" && node_content[1]===" "){
+                parent_element.textContent = parent_element.textContent.slice(2);
+            }
+            // delete: number list
+            else if(["0","1","2","3","4","5","6","7","8","9"].includes(node_content[0]))
+            {
+                let num_pos_bracket_node: number = node_content.indexOf(")");
+                let serial_number_node: number = Number(node_content.slice(0,num_pos_bracket_node));
+                if(num_pos_bracket_node!==-1 && !isNaN(serial_number_node))
+                {
+                    parent_element.textContent = node_content.slice(num_pos_bracket_node+2);
                 }
             }
         }
     }
 
+
     //-------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Header ---
-    function ConvertLineTextToHeader(node_tree: Node, order_header: string): void {
-        if(node_tree.parentElement){
-            let parent_element: HTMLElement = node_tree.parentElement;
-            if(order_header==="0"){
+    function ConvertLineTextToHeader(i_target: TargetNodeForConvert): void {
+        if(i_target.node.parentElement){
+            let parent_element: HTMLElement = i_target.node.parentElement;
+            if(i_target.flag==="/"){
                 parent_element.style.fontSize = "16px";
                 parent_element.style.fontWeight = "300";
             }
-            else if(order_header==="1"){
+            else if(i_target.flag==="1"){
                 parent_element.style.fontSize = "40px";
                 parent_element.style.fontWeight = "600";
             }
-            else if(order_header==="2"){
+            else if(i_target.flag==="2"){
                 parent_element.style.fontSize = "32px";
                 parent_element.style.fontWeight = "600";
             }
-            else if(order_header==="3"){
+            else if(i_target.flag==="3"){
                 parent_element.style.fontSize = "24px";
                 parent_element.style.fontWeight = "600";
             }
-            else if(order_header==="4"){
+            else if(i_target.flag==="4"){
                 parent_element.style.fontSize = "20px";
                 parent_element.style.fontWeight = "600";
             }
-            else if(order_header==="5"){
+            else if(i_target.flag==="5"){
                 parent_element.style.fontSize = "16px";
                 parent_element.style.fontWeight = "600";
             }
-            else if(order_header==="6"){
+            else if(i_target.flag==="6"){
                 parent_element.style.fontSize = "14px";
                 parent_element.style.fontWeight = "600";
             }
         }
     }
 
-    //-----------------------------------------------------------------------------------------
-    //-------------------------------------------------------------------------------- List ---
-    function ConvertLineTextToList(node_tree: Node, order_header: string): void {
-        if(node_tree.parentElement){
-            let parent_element = node_tree.parentElement;
-            if(order_header==="0")
+
+    //------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------- List: dot, number ---
+    function ConvertLineTextToList(i_target: TargetNodeForConvert): void {
+        let parent_element: HTMLElement | null = i_target.node.parentElement;
+        if(parent_element){
+            let parent_element = i_target.node.parentElement;
+            if(i_target.flag==="/")
             {
                 let parent_element_content = parent_element.textContent ?? "";
                 parent_element.style.paddingLeft = "0px";
@@ -342,12 +393,12 @@
                     }
                 }
             }
-            else if(order_header==="d")
+            else if(i_target.flag==="d")
             {
                 parent_element.style.paddingLeft = "20px";
                 parent_element.textContent = "•" + " " + parent_element.textContent;
             }
-            else if(order_header==="n")
+            else if(i_target.flag==="n")
             {
                 parent_element.style.paddingLeft = "20px";
 
@@ -372,7 +423,7 @@
                     }
                 }
             }
-            else if(order_header==="find")
+            else if(i_target.flag==="find")
             {
                 let previous_element_content = g_tree_block_write?.previousNode()?.textContent ?? "";
                 if(previous_element_content[0]==="•")
@@ -408,6 +459,26 @@
         }
     }
 
+
+    //----------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------- Half new line ---
+    function ConvertLineTextToAddNewLine(i_target: TargetNodeForConvert): void {
+        let parent_element: HTMLElement | null = i_target.node.parentElement;
+        if(parent_element===null) return;
+
+        if(i_target.flag=="/"){
+            parent_element.style.paddingBottom = `0px`;
+        }
+
+        let order_new_line_number: number | string = Number(i_target.flag);
+        if(!isNaN(order_new_line_number)){
+            parent_element.style.paddingBottom = `${4*order_new_line_number}px`;
+        }
+    }
+
+
+    //======================================================================================================
+    //================================================================================ Convert Line Text ===
 
     //---------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Bold & Italic Font
@@ -445,9 +516,10 @@
         autofocus
         on:input={HandleInputBlockWrite}
     >
-        <div>
+        <!-- <div>
             I welcome you to a winter&rsquo;s fairy tale &#10052;
-        </div>
+        </div> -->
+        <div>Title 1</div><div>pop</div><div>kik</div><div><br></div><div>Title 2</div><div>loli</div><div>:)</div><div><br></div><div>Title 3</div><div>up &amp; down</div><div><br></div><div>@End</div>
     </div>
 
     <input
