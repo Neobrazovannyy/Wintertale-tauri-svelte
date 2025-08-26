@@ -12,7 +12,7 @@
         position: 0,
         start: false,
         collapsed: true,
-        content_node: "",
+        empty_node: false,
     });
     
     /*==================================================*/
@@ -28,7 +28,7 @@
         position: number;
         start: boolean;
         collapsed: boolean;
-        content_node: string;
+        empty_node: boolean;
     }
     
     //==============================================================================================
@@ -72,7 +72,7 @@
         let position_end: number;
         let check_start_line: boolean;
         let cursor_collapsed: boolean;
-        let content_node: string;
+        let empty_node: boolean;
 
         let select_el: Selection = window.getSelection()!;
         let range_line: Range = select_el.getRangeAt(0);
@@ -89,8 +89,8 @@
         position_end = (rang_glob_str!="") ? (rang_glob_len) : (0);
         //=> g_cursor_pos_symbol.start
         check_start_line = (rang_line_end_offset==0) ? (true) : (false);        
-        //=> g_cursor_pos_symbol.content_node
-        content_node = rang_line_end_cont.nodeValue?.slice(0, 20) ?? "";
+        //=> g_cursor_pos_symbol.empty_node
+        empty_node = (rang_line_end_cont.nodeValue==null) ? (true) : (false);
 
         //=> g_cursor_pos_symbol.collapsed
         cursor_collapsed=range_line.collapsed;
@@ -114,7 +114,7 @@
             position: position_end,
             start: check_start_line,
             collapsed: cursor_collapsed,
-            content_node: content_node
+            empty_node: empty_node
         }
 
         L("=================================");
@@ -122,7 +122,7 @@
         L(g_cursor_pos_symbol.position);
         L(g_cursor_pos_symbol.start);
         L(g_cursor_pos_symbol.collapsed);
-        L(g_cursor_pos_symbol.content_node);
+        L(g_cursor_pos_symbol.empty_node);
         L("=================================");
 
     }
@@ -155,8 +155,9 @@
                 }
 
                 // Checking the compliance of the lines
-                if(g_cursor_pos_symbol.content_node != (current_node.nodeValue?.slice(0, 20) ?? ""))
+                if(g_cursor_pos_symbol.empty_node != (current_node.nodeValue==null))
                 {
+                    L("Next bode: //Checking the compliance of the lines");
                     g_tree_block_write?.nextNode();
                     current_node = g_tree_block_write.currentNode ?? null;
                 }
@@ -336,7 +337,7 @@
                 }
                 
                 // Checking the compliance of the lines
-                if(g_cursor_pos_symbol.content_node != (current_node.nodeValue?.slice(0,20) ?? ""))
+                if(g_cursor_pos_symbol.empty_node != (current_node.nodeValue==null))
                 {
                     g_tree_block_write?.nextNode();
                     current_node = g_tree_block_write.currentNode ?? null;
@@ -605,7 +606,7 @@
         <!-- <div>
             I welcome you to a winter&rsquo;s fairy tale &#10052;
         </div> -->
-        <div>Title 1</div><div>pop</div><div>kik</div><div><br></div><div>Title 2</div><div>loli</div><div>:)</div><div><br></div><div>Title 3</div><div>up &amp; down</div><div><br></div><div>@End</div>
+        <div>Title 1</div><div>pop</div><div>kik</div><div>xcx</div><div><br></div><div>Title 2</div><div>loli</div><div>:)</div><div><br></div><div>Title 3</div><div>up &amp; down</div><div><br></div><div>@End</div>
     </div>
 
     <input
