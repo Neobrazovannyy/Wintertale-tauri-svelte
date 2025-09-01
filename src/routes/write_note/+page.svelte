@@ -1,6 +1,7 @@
 <script lang="ts">
     // import type { ChannelNameHwb } from "sass";
     import { onMount } from "svelte";
+    import { slide } from "svelte/transition";
     let g_block_write_El: HTMLDivElement;
     let g_mini_console_El: HTMLInputElement;
     let g_focus_block: string = $state("block_write");
@@ -12,6 +13,7 @@
         position: 0,
         start: false,
         collapsed: true,
+        amount_words: null,
         empty_node: false,
     });
     
@@ -22,12 +24,20 @@
         node: Node;
         flag: string;
     }
+    
+    interface TargetNodeAndWordsForConvert {
+        start_node: Node;
+        index_start_word_in_node: number;
+        amount_words: number;
+        flag: string;
+    }
 
     interface PositionStartLine {
-        start_position: number | null;
+        start_position: number;
         position: number;
         start: boolean;
         collapsed: boolean;
+        amount_words: number | null;
         empty_node: boolean;
     }
     
@@ -68,63 +78,62 @@
     
     // Finding and Set the value cursor position
     function SetVariableCursorPosition(): void {        
-        let position_start: number | null;
+        let position_start: number;
         let position_end: number;
         let check_start_line: boolean;
         let cursor_collapsed: boolean;
-        let empty_node: boolean;
+        let num_words_in_select_text: number | null=null;
+        let check_empty_node: boolean;
 
         let select_el: Selection = window.getSelection()!;
         let range_line: Range = select_el.getRangeAt(0);
         let rang_line_end_cont: Node = range_line.endContainer;
+        let rang_line_start_cont: Node = range_line.startContainer;
+        let rang_line_start_offset: number = range_line.startOffset;
         let rang_line_end_offset: number = range_line.endOffset;
 
         let range_global: Range = range_line.cloneRange();
         range_global.selectNodeContents(g_block_write_El);
+
+        //---> g_cursor_pos_symbol.position
         range_global.setEnd(rang_line_end_cont, rang_line_end_offset);
+        position_end=range_global.toString().length;
+        position_start=position_end
 
-        let rang_glob_str: string = range_global.toString();
-        let rang_glob_len: number = rang_glob_str.length;
-        //=> g_cursor_pos_symbol.position
-        position_end = (rang_glob_str!="") ? (rang_glob_len) : (0);
-        //=> g_cursor_pos_symbol.start
-        check_start_line = (rang_line_end_offset==0) ? (true) : (false);        
-        //=> g_cursor_pos_symbol.empty_node
-        empty_node = (rang_line_end_cont.nodeValue==null) ? (true) : (false);
+        //---> g_cursor_pos_symbol.start
+        check_start_line = (rang_line_end_offset==0) ? (true) : (false);
+              
+        //---> g_cursor_pos_symbol.empty_node
+        check_empty_node = (rang_line_end_cont.nodeValue==null) ? (true) : (false);
 
-        //=> g_cursor_pos_symbol.collapsed
+        //---> g_cursor_pos_symbol.collapsed
         cursor_collapsed=range_line.collapsed;
-        //=> g_cursor_pos_symbol.start_position
+        //---> g_cursor_pos_symbol.start_position
         if(!cursor_collapsed){
-            range_global.setStart(rang_line_end_cont, range_line.startOffset);
-            position_start = position_end - rang_glob_len;
+            range_global.setStart(rang_line_start_cont, rang_line_start_offset);
+            let rang_glob_str: string = range_global.toString();
+            position_start-=rang_glob_str.length;
+            num_words_in_select_text=rang_glob_str.trim().split(" ").length;
         }
-        else{
-            position_start=null;
-        }
-
-        /*-------------------------- ERROR -----------------------------------*/
-        /*--------------------------------------------------------------------*/
-        /*--- Index or size is negative or greater than the allowed amount ---*/
-        /*--- in CTRL + D => Number List -------------------------------------*/
-        /*--------------------------------------------------------------------*/
+    
         
         g_cursor_pos_symbol={
             start_position: position_start,
             position: position_end,
             start: check_start_line,
             collapsed: cursor_collapsed,
-            empty_node: empty_node
+            amount_words: num_words_in_select_text,
+            empty_node: check_empty_node
         }
 
-        L("=================================");
+        L("-------------------------------------------->");
         L(g_cursor_pos_symbol.start_position);
         L(g_cursor_pos_symbol.position);
-        L(g_cursor_pos_symbol.start);
-        L(g_cursor_pos_symbol.collapsed);
+        // L(g_cursor_pos_symbol.start);
+        // L(g_cursor_pos_symbol.collapsed);
+        L(g_cursor_pos_symbol.amount_words);
         L(g_cursor_pos_symbol.empty_node);
-        L("=================================");
-
+        L("<--------------------------------------------");
     }
 
     // Setting the cursor position
@@ -157,7 +166,6 @@
                 // Checking the compliance of the lines
                 if(g_cursor_pos_symbol.empty_node != (current_node.nodeValue==null))
                 {
-                    L("Next bode: //Checking the compliance of the lines");
                     g_tree_block_write?.nextNode();
                     current_node = g_tree_block_write.currentNode ?? null;
                 }
@@ -290,13 +298,14 @@
         /*============ Text decoration: bold, italic ============*/
         /*=======================================================*/
         else if(wit_console_command.slice(0,2)==="td"){
-            // else if(wit_console_command.slice(0,2)==="td"){
+            // else if(wit_console_command[0]==="t"){
             /*----- dot, number -----*/
-            if(wit_console_command.length <= 2){
-                FindAndConvertLineInTreeDOM(ConvertLineTextToAddNewLine, "1");
+            if(wit_console_command[2]==="b"){
+                // FindAndConvertWordsInTreeDOM(ConvertLineTextToAddNewLine, "1");
+                FindAndConvertWordsInTreeDOM();
             }
             else{
-                FindAndConvertLineInTreeDOM(ConvertLineTextToAddNewLine, wit_console_command[2]);
+                // FindAndConvertWordsInTreeDOM(ConvertLineTextToAddNewLine, wit_console_command[2]);
             }
  
         }
@@ -313,8 +322,8 @@
     }
 
 
-    //---------------------------------------------------------------------------------------------------------------------------------------
-    //-------------------------------------------------------------------------------- Find Line in TreeWalker and Function Convert Call  ---
+    //--------------------------------------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------- Find Line in TreeWalker and Function Convert Call ---
     function FindAndConvertLineInTreeDOM(CallFunc: (i_target: TargetNodeForConvert)=> void, parameter_func: string = ""): void {
         SetVariableTreeWalker();
 
@@ -364,22 +373,84 @@
             count_symbol+=length_str_current_node;
         }
     }
-
-    //====================================================================================================
-    //================================================================================ Handle Function ===
-
-    //------------------------------------------------------------------------------------------
-    //-------------------------------------------------------------------------------- Input ---
-    function HandleBlurInput(): void {
-        // g_mini_console_El.value = "";
-    }
     
-    //------------------------------------------------------------------------------------------------
-    //-------------------------------------------------------------------------------- Block Write ---
-    function HandleInputBlockWrite(): void {
-        // CheckTextListDot
+    //---------------------------------------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------- Find Words in TreeWalker and Function Convert Call ---
+    // function FindAndConvertWordsInTreeDOM(CallFunc: (i_target: TargetNodeAndWordsForConvert)=>void, parameter_func: string=""): void {
+    function FindAndConvertWordsInTreeDOM(): void {
+        SetVariableTreeWalker();
+
+        let count_symbol_in_each_line: number = 0;
+        let current_node: Node | null;
+        let current_node_str: string;
+        let i_target: TargetNodeAndWordsForConvert;
+
+        while(g_tree_block_write?.nextNode())
+        {
+            current_node = g_tree_block_write.currentNode ?? null;
+            current_node_str = current_node.nodeValue ?? "";
+            let length_str_current_node = current_node_str.length ?? 0;
+
+            if(count_symbol_in_each_line+length_str_current_node >= g_cursor_pos_symbol.position)
+            {
+                let index_cursor_in_line: number = length_str_current_node-(count_symbol_in_each_line+length_str_current_node-g_cursor_pos_symbol.start_position);
+                let new_range: Range = document.createRange();
+                if(g_cursor_pos_symbol.start && g_cursor_pos_symbol.position!=0)
+                {
+                    g_tree_block_write?.nextNode();
+                    current_node = g_tree_block_write.currentNode ?? null;
+                }
+                
+                // Checking the compliance of the lines
+                if(g_cursor_pos_symbol.empty_node != (current_node.nodeValue==null))
+                {
+                    g_tree_block_write?.nextNode();
+                    current_node = g_tree_block_write.currentNode ?? null;
+                }
+
+                //---> The target node is correctly selected: g_tree_block_write.currentNode
+
+                // I'm looking for the index of the first word
+                let index_start_word: number=0;
+                let count_symbols_in_words: number=0;
+                let list_words_in_line_current_node: string[] = current_node_str.split(" ");
+                for(var word_from_current_node of list_words_in_line_current_node)
+                {
+                    count_symbols_in_words+=word_from_current_node.length-1;
+                    if(count_symbols_in_words>=index_cursor_in_line)
+                    {
+                        break;
+                    }
+                    else{
+                        index_start_word++;
+                    }
+                    count_symbols_in_words++; // I'm adding the value of one space before the word
+                }
+
+                L(index_start_word);
+
+                i_target={
+                    start_node: current_node,
+                    amount_words: 0,
+                    index_start_word_in_node: index_start_word,
+                    flag: "gg"
+                }
+                /*-----------------------------------*/
+                // CallFunc(i_target);
+                /*-----------------------------------*/
+
+                let select_el = window.getSelection();
+                if(select_el){
+                    select_el.removeAllRanges();
+                    select_el.addRange(new_range);
+                }
+
+                g_tree_block_write.currentNode = g_block_write_El;
+                return;
+            }
+            count_symbol_in_each_line+=length_str_current_node;
+        }
     }
-    
     
     //======================================================================================================
     //================================================================================ Convert Line Text ===
@@ -453,7 +524,7 @@
 
     //------------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- List: dot, number ---
-    function ConvertLineTextToList(i_target: TargetNodeForConvert): void {  //! ERROR: Index or size is negative or greater than the allowed amount
+    function ConvertLineTextToList(i_target: TargetNodeForConvert): void {
         let parent_element: HTMLElement | null = i_target.node.parentElement;
         if(parent_element){
             let parent_element = i_target.node.parentElement;
@@ -601,19 +672,20 @@
         class="block_write"
         contenteditable="true" 
         autofocus
-        on:input={HandleInputBlockWrite}
     >
         <!-- <div>
             I welcome you to a winter&rsquo;s fairy tale &#10052;
         </div> -->
-        <div>Title 1</div><div>pop</div><div>kik</div><div>xcx</div><div><br></div><div>Title 2</div><div>loli</div><div>:)</div><div><br></div><div>Title 3</div><div>up &amp; down</div><div><br></div><div>@End</div>
+
+        <!-- <div>Title 1</div><div>pop</div><div>kik</div><div>xcx</div><div><br></div><div>Title 2</div><div>loli</div><div>:)</div><div><br></div><div>Title 3</div><div>up &amp; down</div><div><br></div><div>@End</div> -->
+
+        <div>Myths are ancient, timeless tales,</div><div><br></div><div>Of gods and heroes, monsters, and whales.</div><div>They tried to explain the world's creation,</div><div>And teach a lesson to every nation.</div><div>More than just stories from long ago,</div><div>They show us truths that we all know.</div>
     </div>
 
     <input
         class="mini_console"
         type="text"
         placeholder="TAB"
-        on:blur={HandleBlurInput}
     >
 
 </div>
