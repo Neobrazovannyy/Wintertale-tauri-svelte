@@ -13,7 +13,7 @@
         position: 0,
         start: false,
         collapsed: true,
-        amount_words: null,
+        amount_words: 1,
         empty_node: false,
     });
     
@@ -37,7 +37,7 @@
         position: number;
         start: boolean;
         collapsed: boolean;
-        amount_words: number | null;
+        amount_words: number;
         empty_node: boolean;
     }
     
@@ -82,7 +82,7 @@
         let position_end: number;
         let check_start_line: boolean;
         let cursor_collapsed: boolean;
-        let num_words_in_select_text: number | null=null;
+        let num_words_in_select_text: number=1;
         let check_empty_node: boolean;
 
         let select_el: Selection = window.getSelection()!;
@@ -126,14 +126,14 @@
             empty_node: check_empty_node
         }
 
-        L("-------------------------------------------->");
-        L(g_cursor_pos_symbol.start_position);
-        L(g_cursor_pos_symbol.position);
+        // L("-------------------------------------------->");
+        // L(g_cursor_pos_symbol.start_position);
+        // L(g_cursor_pos_symbol.position);
         // L(g_cursor_pos_symbol.start);
         // L(g_cursor_pos_symbol.collapsed);
-        L(g_cursor_pos_symbol.amount_words);
-        L(g_cursor_pos_symbol.empty_node);
-        L("<--------------------------------------------");
+        // L(g_cursor_pos_symbol.amount_words);
+        // L(g_cursor_pos_symbol.empty_node);
+        // L("<--------------------------------------------");
     }
 
     // Setting the cursor position
@@ -217,13 +217,19 @@
                 SelectFocusElementSetVarTreeAndCurPos("block_write");
             }
         }
-        else if(event.ctrlKey && event.key==="d")
-        {
+        else if(event.ctrlKey && event.key==="d"){
             event.preventDefault();
             event.stopPropagation();
 
             SetVariableCursorPosition();
             FindAndConvertLineInTreeDOM(ConvertLineTextToList, "find");
+            SetCursorPosition();
+        }
+        else if(event.ctrlKey && event.key==="b"){
+            event.preventDefault();
+            event.stopPropagation();
+            SetVariableCursorPosition();
+            FindAndConvertWordsInTreeDOM(ConvertWordsAddTextDecoration, "b");
             SetCursorPosition();
         }
     }
@@ -301,8 +307,7 @@
             // else if(wit_console_command[0]==="t"){
             /*----- dot, number -----*/
             if(wit_console_command[2]==="b"){
-                // FindAndConvertWordsInTreeDOM(ConvertLineTextToAddNewLine, "1");
-                FindAndConvertWordsInTreeDOM();
+                FindAndConvertWordsInTreeDOM(ConvertWordsAddTextDecoration, wit_console_command[2]);
             }
             else{
                 // FindAndConvertWordsInTreeDOM(ConvertLineTextToAddNewLine, wit_console_command[2]);
@@ -340,44 +345,43 @@
             {
                 let new_range: Range = document.createRange();
                 if(g_cursor_pos_symbol.start && g_cursor_pos_symbol.position!=0)
-                {
+				{
                     g_tree_block_write?.nextNode();
                     current_node = g_tree_block_write.currentNode ?? null;
-                }
-                
-                // Checking the compliance of the lines
-                if(g_cursor_pos_symbol.empty_node != (current_node.nodeValue==null))
-                {
+				}
+
+				// Checking the compliance of the lines
+				if(g_cursor_pos_symbol.empty_node != (current_node.nodeValue==null))
+				{
                     g_tree_block_write?.nextNode();
                     current_node = g_tree_block_write.currentNode ?? null;
-                }
+				}
 
 
-                i_target={
+				i_target={
                     node: current_node,
                     flag: parameter_func
-                }
-                /*-----------------------------------*/
-                CallFunc(i_target);
-                /*-----------------------------------*/
+				}
+				/*-----------------------------------*/
+				CallFunc(i_target);
+				/*-----------------------------------*/
 
-                let select_el = window.getSelection();
-                if(select_el){
+				let select_el = window.getSelection();
+				if(select_el){
                     select_el.removeAllRanges();
                     select_el.addRange(new_range);
-                }
+				}
 
-                g_tree_block_write.currentNode = g_block_write_El;
-                return;
+				g_tree_block_write.currentNode = g_block_write_El;
+				return;
             }
             count_symbol+=length_str_current_node;
         }
     }
-    
+
     //---------------------------------------------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Find Words in TreeWalker and Function Convert Call ---
-    // function FindAndConvertWordsInTreeDOM(CallFunc: (i_target: TargetNodeAndWordsForConvert)=>void, parameter_func: string=""): void {
-    function FindAndConvertWordsInTreeDOM(): void {
+    function FindAndConvertWordsInTreeDOM(CallFunc: (i_target: TargetNodeAndWordsForConvert)=>void, parameter_func: string=""): void {
         SetVariableTreeWalker();
 
         let count_symbol_in_each_line: number = 0;
@@ -391,16 +395,17 @@
             current_node_str = current_node.nodeValue ?? "";
             let length_str_current_node = current_node_str.length ?? 0;
 
-            if(count_symbol_in_each_line+length_str_current_node >= g_cursor_pos_symbol.position)
+            if(count_symbol_in_each_line+length_str_current_node >= g_cursor_pos_symbol.start_position)
             {
-                let index_cursor_in_line: number = length_str_current_node-(count_symbol_in_each_line+length_str_current_node-g_cursor_pos_symbol.start_position);
+                let index_cursor_in_line: number = g_cursor_pos_symbol.start_position-count_symbol_in_each_line;
                 let new_range: Range = document.createRange();
-                if(g_cursor_pos_symbol.start && g_cursor_pos_symbol.position!=0)
+
+                if(g_cursor_pos_symbol.start && g_cursor_pos_symbol.start_position!=0)
                 {
                     g_tree_block_write?.nextNode();
                     current_node = g_tree_block_write.currentNode ?? null;
                 }
-                
+
                 // Checking the compliance of the lines
                 if(g_cursor_pos_symbol.empty_node != (current_node.nodeValue==null))
                 {
@@ -408,17 +413,16 @@
                     current_node = g_tree_block_write.currentNode ?? null;
                 }
 
-                //---> The target node is correctly selected: g_tree_block_write.currentNode
+                //<--- The target node is correctly selected: g_tree_block_write.currentNode
 
                 // I'm looking for the index of the first word
+                let list_words_in_line_current_node: string[] = current_node_str.split(" ");
                 let index_start_word: number=0;
                 let count_symbols_in_words: number=0;
-                let list_words_in_line_current_node: string[] = current_node_str.split(" ");
                 for(var word_from_current_node of list_words_in_line_current_node)
                 {
                     count_symbols_in_words+=word_from_current_node.length-1;
-                    if(count_symbols_in_words>=index_cursor_in_line)
-                    {
+                    if(count_symbols_in_words>=index_cursor_in_line){
                         break;
                     }
                     else{
@@ -427,31 +431,29 @@
                     count_symbols_in_words++; // I'm adding the value of one space before the word
                 }
 
-                L(index_start_word);
-
-                i_target={
+				i_target={
                     start_node: current_node,
-                    amount_words: 0,
                     index_start_word_in_node: index_start_word,
-                    flag: "gg"
-                }
-                /*-----------------------------------*/
-                // CallFunc(i_target);
-                /*-----------------------------------*/
+                    amount_words: g_cursor_pos_symbol.amount_words,
+                    flag: parameter_func
+				}
+				/*-----------------------------------*/
+				CallFunc(i_target);
+				/*-----------------------------------*/
 
-                let select_el = window.getSelection();
-                if(select_el){
+				let select_el = window.getSelection();
+				if(select_el){
                     select_el.removeAllRanges();
                     select_el.addRange(new_range);
-                }
+				}
 
-                g_tree_block_write.currentNode = g_block_write_El;
-                return;
+				g_tree_block_write.currentNode = g_block_write_El;
+				return;
             }
             count_symbol_in_each_line+=length_str_current_node;
         }
     }
-    
+
     //======================================================================================================
     //================================================================================ Convert Line Text ===
 
@@ -635,13 +637,63 @@
     }
 
 
-    //======================================================================================================
-    //================================================================================ Convert Line Text ===
+    //=======================================================================================================
+    //================================================================================ Convert Words Text ===
 
     //---------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Bold & Italic Font
-    function ConvertTextToBoldFont(): void {
+    function ConvertWordsAddTextDecoration(i_target: TargetNodeAndWordsForConvert): void {
+        if(i_target.flag==="b"){
+            ConvertWordsToBoldFont(i_target);
+        }
+    }
 
+    function ConvertWordsToBoldFont(i_target: TargetNodeAndWordsForConvert): void{
+        let start_node: Node = i_target.start_node;
+        let count_words: number=0;
+        let first_node_fragment: DocumentFragment = document.createDocumentFragment();
+
+        let list_words_in_current_node: string[] = i_target.start_node.nodeValue?.trim().split(" ") || [""];
+        let list_words_len: number=list_words_in_current_node.length;
+        for(var index_word=0; index_word<list_words_len; index_word++)
+        {
+            let target_word: string=list_words_in_current_node[index_word];
+
+            // create an element of type (text)
+            if(index_word<i_target.index_start_word_in_node || count_words>=i_target.amount_words){
+                let word_not_convert: Text;
+                if(index_word==list_words_len-1){
+                    word_not_convert = document.createTextNode(target_word);
+                }
+                else{
+                    word_not_convert = document.createTextNode(target_word+" ");
+                }
+                first_node_fragment.appendChild(word_not_convert);
+                continue;
+            };
+
+            // create an element (span) for the word and convert it
+            let el_word_convert: HTMLSpanElement = document.createElement("span");
+            el_word_convert.textContent=target_word;
+            el_word_convert.style.fontWeight="600";
+            el_word_convert.className="wtr_textDecoration_bold";
+
+            first_node_fragment.appendChild(el_word_convert);
+            if(index_word!=list_words_len){
+                first_node_fragment.appendChild(document.createTextNode(" "));
+            }
+
+            count_words++;
+        }
+        start_node.parentElement?.replaceChild(first_node_fragment, start_node);
+
+        if(count_words>=i_target.amount_words) return;
+
+
+        // while(g_tree_block_write?.nextNode())
+        // {
+        //     L(g_tree_block_write.currentNode.nodeValue);
+        // }
     }
 
     
@@ -679,7 +731,7 @@
 
         <!-- <div>Title 1</div><div>pop</div><div>kik</div><div>xcx</div><div><br></div><div>Title 2</div><div>loli</div><div>:)</div><div><br></div><div>Title 3</div><div>up &amp; down</div><div><br></div><div>@End</div> -->
 
-        <div>Myths are ancient, timeless tales,</div><div><br></div><div>Of gods and heroes, monsters, and whales.</div><div>They tried to explain the world's creation,</div><div>And teach a lesson to every nation.</div><div>More than just stories from long ago,</div><div>They show us truths that we all know.</div>
+        <div>Myths are ancient, timeless tales,</div><div><br></div><div>Of gods and heroes, monsters, and whales.</div><div><br></div><div>They tried to explain the world's creation,</div><div>And teach a lesson to every nation.</div><div>More than just stories from long ago,</div><div>They show us truths that we all know.</div>
     </div>
 
     <input

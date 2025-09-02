@@ -1,0 +1,10 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\src",
+    "\\src\\routes",
+    "\\src\\routes\\write_note"
+  ],
+  "SelectedNode": "\\src\\routes\\write_note\\+page.svelte",
+  "PreviewInSolutionExplorer": false
+}
