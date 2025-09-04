@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { isActionFailure } from "@sveltejs/kit";
+
     // import type { ChannelNameHwb } from "sass";
     import { onMount } from "svelte";
     import { slide } from "svelte/transition";
@@ -77,66 +79,111 @@
     }
     
     // Finding and Set the value cursor position
-    function SetVariableCursorPosition(): void {        
-        let position_start: number;
-        let position_end: number;
-        let check_start_line: boolean;
-        let cursor_collapsed: boolean;
-        let num_words_in_select_text: number=1;
-        let check_empty_node: boolean;
-
-        let select_el: Selection = window.getSelection()!;
-        let range_line: Range = select_el.getRangeAt(0);
-        let rang_line_end_cont: Node = range_line.endContainer;
-        let rang_line_start_cont: Node = range_line.startContainer;
-        let rang_line_start_offset: number = range_line.startOffset;
-        let rang_line_end_offset: number = range_line.endOffset;
-
-        let range_global: Range = range_line.cloneRange();
-        range_global.selectNodeContents(g_block_write_El);
-
-        //---> g_cursor_pos_symbol.position
-        range_global.setEnd(rang_line_end_cont, rang_line_end_offset);
-        position_end=range_global.toString().length;
-        position_start=position_end
-
-        //---> g_cursor_pos_symbol.start
-        check_start_line = (rang_line_end_offset==0) ? (true) : (false);
-              
-        //---> g_cursor_pos_symbol.empty_node
-        check_empty_node = (rang_line_end_cont.nodeValue==null) ? (true) : (false);
-
-        //---> g_cursor_pos_symbol.collapsed
-        cursor_collapsed=range_line.collapsed;
-        //---> g_cursor_pos_symbol.start_position
-        if(!cursor_collapsed){
-            range_global.setStart(rang_line_start_cont, rang_line_start_offset);
-            let rang_glob_str: string = range_global.toString();
-            position_start-=rang_glob_str.length;
-            num_words_in_select_text=rang_glob_str.trim().split(" ").length;
-        }
-    
+    function SetVariableCursorPosition(): void {
+        // Value for interface position
+        let index_pos_cursor_start: number=0;
+        let index_pos_cursor_end: number=0;
+        let index_word_in_node_start: number=0;
+        let index_word_in_node_end: number=0;
+        let index_node_start: number=0;
+        let index_node_end: number=0;
         
-        g_cursor_pos_symbol={
-            start_position: position_start,
-            position: position_end,
-            start: check_start_line,
-            collapsed: cursor_collapsed,
-            amount_words: num_words_in_select_text,
-            empty_node: check_empty_node
+        // Get global position cursor
+        let global_position_end: number=0;
+        let global_position_start: number=0;
+        let cursor_collapsed: boolean=true;
+
+        let element_select: Selection = window.getSelection()!;
+        let node_rang: Range=element_select.getRangeAt(0);
+        let global_rang: Range=node_rang.cloneRange();
+        global_rang.selectNodeContents(g_block_write_El);
+        global_rang.setEnd(node_rang.endContainer, node_rang.endOffset);
+        
+        global_position_end=global_rang.toString().length;
+        let text_node_start: string=node_rang.startContainer.textContent || "";
+        let text_node_end: string=node_rang.endContainer.textContent || "";
+
+        cursor_collapsed=node_rang.collapsed;
+        if(!cursor_collapsed){
+            global_rang.setStart(node_rang.startContainer, node_rang.startOffset);
+            let select_text_length: number=global_rang.toString().length;
+            global_position_start=global_position_end-select_text_length;
+        }
+        else{
+            global_position_start=global_position_end;
         }
 
-        // L("-------------------------------------------->");
-        // L(g_cursor_pos_symbol.start_position);
-        // L(g_cursor_pos_symbol.position);
-        // L(g_cursor_pos_symbol.start);
-        // L(g_cursor_pos_symbol.collapsed);
-        // L(g_cursor_pos_symbol.amount_words);
-        // L(g_cursor_pos_symbol.empty_node);
-        // L("<--------------------------------------------");
+        //<--- Set: index_node_start, index_node_end, index_pos_cursor_start, index_pos_cursor_end
+        let count_symbol_global: number=0;
+        let block_write_nodes: Element[] = Array.from(g_block_write_El.children);
+        let check_adding_index_node_start: boolean=true;
+        for(var block_write_node of block_write_nodes){
+            let node_content: string=block_write_node.textContent;
+            let node_content_length: number=node_content.length;
+            count_symbol_global+=node_content_length;
+
+            // checking the starting node
+            if(
+                check_adding_index_node_start &&
+                !cursor_collapsed &&
+                count_symbol_global>=global_position_start &&
+                node_content.slice(0,50)==text_node_start.slice(0,50)
+            ){
+                index_pos_cursor_start=node_content_length-(count_symbol_global-global_position_start);
+                check_adding_index_node_start=false;
+            }
+
+
+            // checking the last node
+            if(
+                count_symbol_global>=global_position_end &&
+                node_content.slice(0,50)==text_node_end.slice(0,50)
+            ){
+                index_pos_cursor_end=node_content_length-(count_symbol_global-global_position_end);
+                break;
+            }
+
+            // adding one to the index of the starting node 
+            if(!cursor_collapsed && check_adding_index_node_start) index_node_start++;
+            // adding one to the index of the end node
+            index_node_end++;
+        }
+
+        if(cursor_collapsed){
+            index_pos_cursor_start=index_pos_cursor_end;
+            index_node_start=index_node_end;
+        }
+
+        let list_words_in_node_start: string[] = text_node_start.split(" ");
+        let list_words_in_node_end: string[] = text_node_end.split(" ");
+
+        //<--- Set: index_word_in_node_end
+        count_symbol_global=0;
+        for(var word_in_node of list_words_in_node_end){
+            let word_in_node_length: number=word_in_node.length;
+            count_symbol_global+=word_in_node_length;
+            if(cursor_collapsed && count_symbol_global>=index_pos_cursor_end) break;
+            if(!cursor_collapsed && count_symbol_global+1>=index_pos_cursor_end) break;
+            count_symbol_global++;
+            index_word_in_node_end++;
+        }
+        //<--- Set: index_word_in_node_start
+        if(!cursor_collapsed){
+            count_symbol_global=0;
+            for(var word_in_node of list_words_in_node_start){
+                let word_in_node_length: number=word_in_node.length;
+                count_symbol_global+=word_in_node_length;
+                if(count_symbol_global-1>=index_pos_cursor_start) break;
+                count_symbol_global++;
+                index_word_in_node_start++;
+            }
+        }
+        else{
+            index_word_in_node_start=index_word_in_node_end;
+        }
     }
 
-    // Setting the cursor position
+
     function SetCursorPosition(): void {
         SetVariableTreeWalker();
 
@@ -305,7 +352,7 @@
         /*=======================================================*/
         else if(wit_console_command.slice(0,2)==="td"){
             // else if(wit_console_command[0]==="t"){
-            /*----- dot, number -----*/
+            /*----- bold -----*/
             if(wit_console_command[2]==="b"){
                 FindAndConvertWordsInTreeDOM(ConvertWordsAddTextDecoration, wit_console_command[2]);
             }
@@ -343,7 +390,6 @@
 
             if(count_symbol+length_str_current_node >= g_cursor_pos_symbol.position)
             {
-                let new_range: Range = document.createRange();
                 if(g_cursor_pos_symbol.start && g_cursor_pos_symbol.position!=0)
 				{
                     g_tree_block_write?.nextNode();
@@ -366,12 +412,6 @@
 				CallFunc(i_target);
 				/*-----------------------------------*/
 
-				let select_el = window.getSelection();
-				if(select_el){
-                    select_el.removeAllRanges();
-                    select_el.addRange(new_range);
-				}
-
 				g_tree_block_write.currentNode = g_block_write_El;
 				return;
             }
@@ -387,6 +427,7 @@
         let count_symbol_in_each_line: number = 0;
         let current_node: Node | null;
         let current_node_str: string;
+        let list_words_in_node: string[];
         let i_target: TargetNodeAndWordsForConvert;
 
         while(g_tree_block_write?.nextNode())
@@ -398,56 +439,58 @@
             if(count_symbol_in_each_line+length_str_current_node >= g_cursor_pos_symbol.start_position)
             {
                 let index_cursor_in_line: number = g_cursor_pos_symbol.start_position-count_symbol_in_each_line;
-                let new_range: Range = document.createRange();
-
-                if(g_cursor_pos_symbol.start && g_cursor_pos_symbol.start_position!=0)
+                L(index_cursor_in_line);
+                let index_word_in_node: number=0;
+                if(g_cursor_pos_symbol.start)
                 {
                     g_tree_block_write?.nextNode();
-                    current_node = g_tree_block_write.currentNode ?? null;
+                    index_word_in_node=0;
                 }
-
-                // Checking the compliance of the lines
-                if(g_cursor_pos_symbol.empty_node != (current_node.nodeValue==null))
+                else
                 {
-                    g_tree_block_write?.nextNode();
-                    current_node = g_tree_block_write.currentNode ?? null;
-                }
+                    let count_index_word: number=0;
+                    list_words_in_node=current_node_str.trim().split(" ");
 
-                //<--- The target node is correctly selected: g_tree_block_write.currentNode
-
-                // I'm looking for the index of the first word
-                let list_words_in_line_current_node: string[] = current_node_str.split(" ");
-                let index_start_word: number=0;
-                let count_symbols_in_words: number=0;
-                for(var word_from_current_node of list_words_in_line_current_node)
-                {
-                    count_symbols_in_words+=word_from_current_node.length-1;
-                    if(count_symbols_in_words>=index_cursor_in_line){
-                        break;
+                    // if the text is not selected
+                    if(g_cursor_pos_symbol.collapsed){
+                        for(var word_in_node of list_words_in_node){
+                            count_index_word+=word_in_node.length;
+                            if(count_index_word<index_cursor_in_line){
+                                index_word_in_node++;
+                            }
+                            else{
+                                break;
+                            }
+                            count_index_word++;
+                        }
                     }
+                    // if the text was selected
                     else{
-                        index_start_word++;
+                        for(var word_in_node of list_words_in_node){
+                            count_index_word+=word_in_node.length-1;
+                            if(count_index_word<index_cursor_in_line){
+                                index_word_in_node++;
+                            }
+                            else{
+                                break;
+                            }
+                            count_index_word++;
+                        }
                     }
-                    count_symbols_in_words++; // I'm adding the value of one space before the word
                 }
+                L(index_word_in_node);
 
-				i_target={
-                    start_node: current_node,
-                    index_start_word_in_node: index_start_word,
-                    amount_words: g_cursor_pos_symbol.amount_words,
-                    flag: parameter_func
-				}
-				/*-----------------------------------*/
-				CallFunc(i_target);
-				/*-----------------------------------*/
 
-				let select_el = window.getSelection();
-				if(select_el){
-                    select_el.removeAllRanges();
-                    select_el.addRange(new_range);
-				}
+				// i_target={
+                //     start_node: current_node,
+                //     index_start_word_in_node: index_start_word,
+                //     amount_words: g_cursor_pos_symbol.amount_words,
+                //     flag: parameter_func
+				// }
+				// CallFunc(i_target);
 
-				g_tree_block_write.currentNode = g_block_write_El;
+
+				// g_tree_block_write.currentNode = g_block_write_El;
 				return;
             }
             count_symbol_in_each_line+=length_str_current_node;
@@ -640,12 +683,79 @@
     //=======================================================================================================
     //================================================================================ Convert Words Text ===
 
-    //---------------------------------------------------------------------------------------------------
-    //-------------------------------------------------------------------------------- Bold & Italic Font
+    //-------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------- Bold & Italic Font ---
     function ConvertWordsAddTextDecoration(i_target: TargetNodeAndWordsForConvert): void {
+        L(i_target.amount_words);
         if(i_target.flag==="b"){
-            ConvertWordsToBoldFont(i_target);
+            if(i_target.amount_words==1){
+                ConvertWordToBoldFont(i_target);
+            }
+            else{
+                ConvertWordsToBoldFont(i_target);
+            }
         }
+    }
+
+    //----------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------- Bold Font ---
+    function ConvertWordToBoldFont(i_target: TargetNodeAndWordsForConvert): void{
+        let start_node: Node = i_target.start_node;
+        let index_select_word: number=i_target.index_start_word_in_node;
+        let first_node_fragment: DocumentFragment = document.createDocumentFragment();
+
+        
+        let list_words_in_current_node: string[] = i_target.start_node.nodeValue?.trim().split(" ") || [""];
+        let list_words_len: number=list_words_in_current_node.length;
+        
+        let count_index_word: number=0;
+        //<--- text before the selected word
+        L("before--------------------------------------------------------");
+        for(count_index_word; count_index_word<index_select_word; count_index_word++)
+        {
+            let target_word: string=list_words_in_current_node[count_index_word];
+            L(target_word);
+            let word_not_convert: Text;
+            word_not_convert = document.createTextNode(target_word+" ");
+            first_node_fragment.appendChild(word_not_convert);
+        }
+        //<--- convert select word
+        L("select--------------------------------------------------------");
+        if(count_index_word==index_select_word){
+            L(list_words_in_current_node[count_index_word]);
+            let el_word_convert: HTMLSpanElement = document.createElement("span");
+            /*--- Font Bold ---*/
+            if(i_target.flag=="b"){
+                if(count_index_word==list_words_len-1){
+                    el_word_convert.textContent=list_words_in_current_node[count_index_word];
+                }
+                else{
+                    el_word_convert.textContent=list_words_in_current_node[count_index_word]+" ";
+                }
+                el_word_convert.style.fontWeight="600";
+                el_word_convert.className="wtr_textDecoration_bold";
+            }
+
+            first_node_fragment.appendChild(el_word_convert);
+            count_index_word++;
+        }
+        //<--- text after the select word
+        L("after--------------------------------------------------------");
+        for(count_index_word; count_index_word<list_words_len; count_index_word++)
+        {
+            let target_word: string=list_words_in_current_node[count_index_word];
+            L(`?End ${target_word}`);
+            let word_not_convert: Text;
+            if(count_index_word==list_words_len-1){
+                word_not_convert = document.createTextNode(target_word);
+            }
+            else{
+                word_not_convert = document.createTextNode(target_word+" ");
+            }
+            first_node_fragment.appendChild(word_not_convert);
+        }
+        
+        start_node.parentElement?.replaceChild(first_node_fragment, start_node);
     }
 
     function ConvertWordsToBoldFont(i_target: TargetNodeAndWordsForConvert): void{
@@ -708,12 +818,6 @@
         console.log(`${description}: ${variable}`);
     }
 
-    // "&#149;"
-    function ConvertToHTML(html_string: string): string {
-        const doc: Document = new DOMParser().parseFromString(html_string, 'text/html');
-        return doc.documentElement.textContent || "";
-    }
-
 </script>
 
 
@@ -731,7 +835,7 @@
 
         <!-- <div>Title 1</div><div>pop</div><div>kik</div><div>xcx</div><div><br></div><div>Title 2</div><div>loli</div><div>:)</div><div><br></div><div>Title 3</div><div>up &amp; down</div><div><br></div><div>@End</div> -->
 
-        <div>Myths are ancient, timeless tales,</div><div><br></div><div>Of gods and heroes, monsters, and whales.</div><div><br></div><div>They tried to explain the world's creation,</div><div>And teach a lesson to every nation.</div><div>More than just stories from long ago,</div><div>They show us truths that we all know.</div>
+        <div>Myths are ancient, timeless tales,</div><div><br></div><div>Of gods and heroes, monsters, and whales.</div><div><br></div><div>They tried to explain the world's creation,</div><div>And teach a les-son to every nation.</div><div>More than just stories from long ago,</div><div>They show us truths that we all know.</div>
     </div>
 
     <input
