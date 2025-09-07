@@ -27,6 +27,11 @@
         cursor_collapsed: boolean;
     }
 
+    interface TargetNodeAndFlag{
+        target_node: Node;
+        flag: string;
+    }
+
     //==============================================================================================
     //================================================================================ Load Page ===
     function LoadElementDOM(): void {
@@ -37,6 +42,142 @@
         g_mini_console_El.addEventListener("keydown", EnteredCommandIntoMiniConsole);
     }
     onMount(LoadElementDOM);
+
+
+    //===========================================================================================================
+    //================================================================================ Hotkey & Walk Tree DOM === 
+    
+    // If you click on a field (block_write), it is in the focus variable (g_focus_block)
+    function ClickFieldBlockWrite(): void {
+        if(g_focus_block==="mini_console")
+        {
+            g_focus_block = "block_write";   //? document.activeElement
+        }
+    }
+    
+    function SelectFocusElementSetVarTreeAndCurPos(focus_element: string): void {
+        if(focus_element==="block_write"){
+            g_block_write_El.focus();
+            SetCursorPosition();
+            g_mini_console_El.value="";
+            g_focus_block="block_write";
+        }
+        else if(focus_element==="mini_console"){
+            SetVariableCursorPosition();
+            g_mini_console_El.focus();
+            g_focus_block = "mini_console";
+        }
+    }
+
+    function CheckHotkey(event: KeyboardEvent) {
+        // Key down: CTRL + SHIFT;
+        // if(event.ctrlKey && event.shiftKey)
+        if(event.code === "Tab")
+        {
+            event.preventDefault();
+            event.stopPropagation();
+
+            // focus moves to the object: "mini console"
+            if(g_focus_block==="block_write")
+            {
+                SelectFocusElementSetVarTreeAndCurPos("mini_console");
+            }
+            // focus moves to the object: "block write"
+            else if(g_focus_block==="mini_console")
+            {
+                SelectFocusElementSetVarTreeAndCurPos("block_write");
+            }
+        }
+        else if(event.ctrlKey && event.key==="d"){
+            event.preventDefault();
+            event.stopPropagation();
+
+            SetVariableCursorPosition();
+            FindAndConvertLineInTreeDOM(ConvertLineTextToList, "find");
+            SetCursorPosition();
+        }
+        else if(event.ctrlKey && event.key==="b"){
+            event.preventDefault();
+            event.stopPropagation();
+            SetVariableCursorPosition();
+            FindAndConvertWordsInTreeDOM(ConvertWordsAddTextDecoration, "b");
+            SetCursorPosition();
+        }
+    }
+    window.addEventListener("keydown", CheckHotkey);
+
+    //-----------------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------- Enter Text Into Mini Console ---
+    function EnteredCommandIntoMiniConsole(event: KeyboardEvent): void {
+        if(event.code!=="Enter") return;
+        
+        event.preventDefault();
+        event.stopPropagation();
+
+        let wit_console_command: string = g_mini_console_El.value;
+
+        /*==============================================*/
+        /*============ Header of N-th order ============*/
+        /*==============================================*/
+        if(wit_console_command[0]==="h"){
+            /*----- <h1>...<h6> -----*/
+            if(
+                wit_console_command.length === 2 &&
+                ["/", "1","2","3","4","5","6"].includes(wit_console_command[1])
+            ){
+                FindAndConvertLineInTreeDOM(ConvertLineTextToHeader, wit_console_command[1]);
+            }
+        }
+        /*==============================*/
+        /*============ List ============*/
+        /*==============================*/
+        else if(wit_console_command[0]==="l"){
+            /*----- dot, number -----*/
+            if(
+                wit_console_command.length === 2 &&
+                ["/", "d", "n"].includes(wit_console_command[1])
+            ){
+                FindAndConvertLineInTreeDOM(ConvertLineTextToList, wit_console_command[1]);
+            }
+        }
+        /*==================================*/
+        /*============ New line ============*/
+        /*==================================*/
+        else if(wit_console_command.slice(0,2)==="nl"){
+            /*----- dot, number -----*/
+            if(wit_console_command.length <= 2){
+                FindAndConvertLineInTreeDOM(ConvertLineTextToAddNewLine, "1");
+            }
+            else{
+                FindAndConvertLineInTreeDOM(ConvertLineTextToAddNewLine, wit_console_command[2]);
+            }
+ 
+        }
+        /*=======================================================*/
+        /*============ Text decoration: bold, italic ============*/
+        /*=======================================================*/
+        else if(wit_console_command.slice(0,2)==="td"){
+            // else if(wit_console_command[0]==="t"){
+            /*----- bold -----*/
+            if(wit_console_command[2]==="b"){
+                FindAndConvertWordsInTreeDOM(ConvertWordsAddTextDecoration, wit_console_command[2]);
+            }
+            else{
+                // FindAndConvertWordsInTreeDOM(ConvertLineTextToAddNewLine, wit_console_command[2]);
+            }
+ 
+        }
+        /*======================================*/
+        /*============ Delete Style ============*/
+        /*======================================*/
+        else if(wit_console_command[0]==="/"){
+            if(wit_console_command.length===1){
+                FindAndConvertLineInTreeDOM(ConvertLineTextDeleteStyle);
+            }
+        }
+
+        SelectFocusElementSetVarTreeAndCurPos("block_write");
+    }
 
     
     //========================================================================================================
@@ -203,192 +344,34 @@
                     select_el.removeAllRanges();
                     select_el.addRange(new_range);
                 }
+                return;
             }
             count_index_node++;
         }
     }
 
-    //===========================================================================================================
-    //================================================================================ Hotkey & Walk Tree DOM ===
-      
-    
-    // If you click on a field (block_write), it is in the focus variable (g_focus_block)
-    function ClickFieldBlockWrite(): void {
-        if(g_focus_block==="mini_console")
-        {
-            g_focus_block = "block_write";   //? document.activeElement
-        }
-    }
-    
-    function CheckHotkey(event: KeyboardEvent) {
-        // Key down: CTRL + SHIFT;
-        // if(event.ctrlKey && event.shiftKey)
-        if(event.code === "Tab")
-        {
-            event.preventDefault();
-            event.stopPropagation();
+    //------------------------------------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------- Find Node in Tree DOM and Function Convert Call ---
+    function FindAndConvertLineInTreeDOM(CallFunc: (i_target: TargetNodeAndFlag)=> void, parameter_func: string = ""): void{
+        let index_target_node: number=g_position_cursor_and_node.node_end;
+        let index_target_word_in_node: number=g_position_cursor_and_node.cursor_end;
+        let i_target :TargetNodeAndFlag;
 
-            // focus moves to the object: "mini console"
-            if(g_focus_block==="block_write")
-            {
-                SelectFocusElementSetVarTreeAndCurPos("mini_console");
-            }
-            // focus moves to the object: "block write"
-            else if(g_focus_block==="mini_console")
-            {
-                SelectFocusElementSetVarTreeAndCurPos("block_write");
-            }
-        }
-        else if(event.ctrlKey && event.key==="d"){
-            event.preventDefault();
-            event.stopPropagation();
-
-            SetVariableCursorPosition();
-            FindAndConvertLineInTreeDOM(ConvertLineTextToList, "find");
-            SetCursorPosition();
-        }
-        else if(event.ctrlKey && event.key==="b"){
-            event.preventDefault();
-            event.stopPropagation();
-            SetVariableCursorPosition();
-            FindAndConvertWordsInTreeDOM(ConvertWordsAddTextDecoration, "b");
-            SetCursorPosition();
-        }
-    }
-    window.addEventListener("keydown", CheckHotkey);
-
-
-    //------------------------------------------------------------------------------------------------------------------------------
-    //-------------------------------------------------------------------------------- Select Focus && CALL: Var Cursor Position ---
-    function SelectFocusElementSetVarTreeAndCurPos(focus_element: string): void {
-        if(focus_element==="block_write"){
-            g_block_write_El.focus();
-            SetCursorPosition();
-            g_mini_console_El.value="";
-            g_focus_block="block_write";
-        }
-        else if(focus_element==="mini_console"){
-            SetVariableCursorPosition();
-            g_mini_console_El.focus();
-            g_focus_block = "mini_console";
-        }
-    }
-
-
-    //-----------------------------------------------------------------------------------------------------------------
-    //-------------------------------------------------------------------------------- Enter Text Into Mini Console ---
-    function EnteredCommandIntoMiniConsole(event: KeyboardEvent): void {
-        if(event.code!=="Enter") return;
-        
-        event.preventDefault();
-        event.stopPropagation();
-
-        let wit_console_command: string = g_mini_console_El.value;
-
-        /*==============================================*/
-        /*============ Header of N-th order ============*/
-        /*==============================================*/
-        if(wit_console_command[0]==="h"){
-            /*----- <h1>...<h6> -----*/
-            if(
-                wit_console_command.length === 2 &&
-                ["/", "1","2","3","4","5","6"].includes(wit_console_command[1])
-            ){
-                FindAndConvertLineInTreeDOM(ConvertLineTextToHeader, wit_console_command[1]);
-            }
-        }
-        /*==============================*/
-        /*============ List ============*/
-        /*==============================*/
-        else if(wit_console_command[0]==="l"){
-            /*----- dot, number -----*/
-            if(
-                wit_console_command.length === 2 &&
-                ["/", "d", "n"].includes(wit_console_command[1])
-            ){
-                FindAndConvertLineInTreeDOM(ConvertLineTextToList, wit_console_command[1]);
-            }
-        }
-        /*==================================*/
-        /*============ New line ============*/
-        /*==================================*/
-        else if(wit_console_command.slice(0,2)==="nl"){
-            /*----- dot, number -----*/
-            if(wit_console_command.length <= 2){
-                FindAndConvertLineInTreeDOM(ConvertLineTextToAddNewLine, "1");
-            }
-            else{
-                FindAndConvertLineInTreeDOM(ConvertLineTextToAddNewLine, wit_console_command[2]);
-            }
- 
-        }
-        /*=======================================================*/
-        /*============ Text decoration: bold, italic ============*/
-        /*=======================================================*/
-        else if(wit_console_command.slice(0,2)==="td"){
-            // else if(wit_console_command[0]==="t"){
-            /*----- bold -----*/
-            if(wit_console_command[2]==="b"){
-                FindAndConvertWordsInTreeDOM(ConvertWordsAddTextDecoration, wit_console_command[2]);
-            }
-            else{
-                // FindAndConvertWordsInTreeDOM(ConvertLineTextToAddNewLine, wit_console_command[2]);
-            }
- 
-        }
-        /*======================================*/
-        /*============ Delete Style ============*/
-        /*======================================*/
-        else if(wit_console_command[0]==="/"){
-            if(wit_console_command.length===1){
-                FindAndConvertLineInTreeDOM(ConvertLineTextDeleteStyle);
-            }
-        }
-
-        SelectFocusElementSetVarTreeAndCurPos("block_write");
-    }
-
-
-    //--------------------------------------------------------------------------------------------------------------------------------------
-    //-------------------------------------------------------------------------------- Find Line in TreeWalker and Function Convert Call ---
-    function FindAndConvertLineInTreeDOM(CallFunc: (i_target: TargetNodeForConvert)=> void, parameter_func: string = ""): void {
-        let count_symbol: number = 0;
+        let tree_block_write: TreeWalker=SetTreeWalkerForBlockWrite();
         let current_node: Node | null;
-        let i_target: TargetNodeForConvert;
-
-        while(g_tree_block_write?.nextNode())
-        {
-            current_node = g_tree_block_write.currentNode ?? null;
-            let length_str_current_node = current_node.nodeValue?.length ?? 0;
-
-            if(count_symbol+length_str_current_node >= g_cursor_pos_symbol.position)
-            {
-                if(g_cursor_pos_symbol.start && g_cursor_pos_symbol.position!=0)
-				{
-                    g_tree_block_write?.nextNode();
-                    current_node = g_tree_block_write.currentNode ?? null;
-				}
-
-				// Checking the compliance of the lines
-				if(g_cursor_pos_symbol.empty_node != (current_node.nodeValue==null))
-				{
-                    g_tree_block_write?.nextNode();
-                    current_node = g_tree_block_write.currentNode ?? null;
-				}
+        let count_index_node: number=0;
 
 
-				i_target={
-                    node: current_node,
-                    flag: parameter_func
-				}
-				/*-----------------------------------*/
-				CallFunc(i_target);
-				/*-----------------------------------*/
-
-				g_tree_block_write.currentNode = g_block_write_El;
-				return;
+        while((current_node=tree_block_write?.nextNode())){
+            if(count_index_node==index_target_node){
+                i_target={
+                    target_node: current_node,
+                    flag: parameter_func,
+                }
+                CallFunc(i_target);
+                return;
             }
-            count_symbol+=length_str_current_node;
+            count_index_node++;
         }
     }
 
@@ -473,10 +456,12 @@
 
     //--------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- DEL ALL Style ---
-    function ConvertLineTextDeleteStyle(i_target: TargetNodeForConvert): void{
-        if(i_target.node.parentElement){
-            let node_content = i_target.node?.textContent ?? "";
-            let parent_element = i_target.node.parentElement;
+    function ConvertLineTextDeleteStyle(i_target: TargetNodeAndFlag): void{
+        let target_node: Node = i_target.target_node;
+
+        if(target_node.parentElement){
+            let node_content = target_node?.textContent ?? "";
+            let parent_element = target_node.parentElement;
 
             // delete: title
             parent_element.style.fontSize = "16px";
@@ -503,34 +488,37 @@
 
     //-------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Header ---
-    function ConvertLineTextToHeader(i_target: TargetNodeForConvert): void {
-        if(i_target.node.parentElement){
-            let parent_element: HTMLElement = i_target.node.parentElement;
-            if(i_target.flag==="/"){
+    function ConvertLineTextToHeader(i_target: TargetNodeAndFlag): void {
+        let target_node: Node = i_target.target_node;
+        let name_flag: string=i_target.flag;
+
+        if(target_node.parentElement){
+            let parent_element: HTMLElement = target_node.parentElement;
+            if(name_flag==="/"){
                 parent_element.style.fontSize = "16px";
                 parent_element.style.fontWeight = "300";
             }
-            else if(i_target.flag==="1"){
+            else if(name_flag==="1"){
                 parent_element.style.fontSize = "40px";
                 parent_element.style.fontWeight = "600";
             }
-            else if(i_target.flag==="2"){
+            else if(name_flag==="2"){
                 parent_element.style.fontSize = "32px";
                 parent_element.style.fontWeight = "600";
             }
-            else if(i_target.flag==="3"){
+            else if(name_flag==="3"){
                 parent_element.style.fontSize = "24px";
                 parent_element.style.fontWeight = "600";
             }
-            else if(i_target.flag==="4"){
+            else if(name_flag==="4"){
                 parent_element.style.fontSize = "20px";
                 parent_element.style.fontWeight = "600";
             }
-            else if(i_target.flag==="5"){
+            else if(name_flag==="5"){
                 parent_element.style.fontSize = "16px";
                 parent_element.style.fontWeight = "600";
             }
-            else if(i_target.flag==="6"){
+            else if(name_flag==="6"){
                 parent_element.style.fontSize = "14px";
                 parent_element.style.fontWeight = "600";
             }
@@ -538,13 +526,19 @@
     }
 
 
+    //! Error, return: <empty string>
     //------------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- List: dot, number ---
-    function ConvertLineTextToList(i_target: TargetNodeForConvert): void {
-        let parent_element: HTMLElement | null = i_target.node.parentElement;
+    function ConvertLineTextToList(i_target: TargetNodeAndFlag): void {
+        let target_node: Node = i_target.target_node;
+        let name_flag: string=i_target.flag;
+
+        let tree_block_write: TreeWalker=SetTreeWalkerForBlockWrite();
+        
+        let parent_element: HTMLElement = target_node.parentElement as HTMLElement;
         if(parent_element){
-            let parent_element = i_target.node.parentElement;
-            if(i_target.flag==="/")
+            let parent_element: HTMLElement = target_node.parentElement as HTMLElement;
+            if(name_flag==="/")
             {
                 let parent_element_content = parent_element.textContent ?? "";
                 parent_element.style.paddingLeft = "0px";
@@ -567,16 +561,18 @@
                     }
                 }
             }
-            else if(i_target.flag==="d")
+            else if(name_flag==="d")
             {
                 parent_element.style.paddingLeft = "20px";
                 parent_element.textContent = "•" + " " + parent_element.textContent;
             }
-            else if(i_target.flag==="n")
+            else if(name_flag==="n")
             {
                 parent_element.style.paddingLeft = "20px";
 
-                let previous_element_content: string = g_tree_block_write?.previousNode()?.textContent ?? "";
+                tree_block_write.currentNode = target_node;
+                let previous_element_content: string = tree_block_write?.previousNode()?.textContent ?? "";
+                L(previous_element_content); //! Error, return: <empty string>
                 let num_pos_bracket_previous: number = previous_element_content.indexOf(")");
                 if(num_pos_bracket_previous===-1){
                     parent_element.textContent = `1) ${parent_element.textContent}`;
@@ -597,9 +593,10 @@
                     }
                 }
             }
-            else if(i_target.flag==="find")
+            else if(name_flag==="find")
             {
-                let previous_element_content = g_tree_block_write?.previousNode()?.textContent ?? "";
+                tree_block_write.currentNode = target_node;
+                let previous_element_content = tree_block_write?.previousNode()?.textContent ?? "";
                 if(previous_element_content[0]==="•")
                 {
                     parent_element.style.paddingLeft = "20px";
@@ -636,8 +633,8 @@
 
     //----------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Half new line ---
-    function ConvertLineTextToAddNewLine(i_target: TargetNodeForConvert): void {
-        let parent_element: HTMLElement | null = i_target.node.parentElement;
+    function ConvertLineTextToAddNewLine(i_target: TargetNodeAndFlag): void {
+        let parent_element: HTMLElement | null = i_target.target_node.parentElement;
         if(parent_element===null) return;
 
         if(i_target.flag=="/"){
@@ -769,12 +766,6 @@
         start_node.parentElement?.replaceChild(first_node_fragment, start_node);
 
         if(count_words>=i_target.amount_words) return;
-
-
-        // while(g_tree_block_write?.nextNode())
-        // {
-        //     L(g_tree_block_write.currentNode.nodeValue);
-        // }
     }
 
     
