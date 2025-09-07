@@ -1,48 +1,32 @@
 <script lang="ts">
-    import { isActionFailure } from "@sveltejs/kit";
-
-    // import type { ChannelNameHwb } from "sass";
     import { onMount } from "svelte";
-    import { slide } from "svelte/transition";
     let g_block_write_El: HTMLDivElement;
     let g_mini_console_El: HTMLInputElement;
     let g_focus_block: string = $state("block_write");
 
-    let g_tree_block_write: TreeWalker | null = $state(null);
-
-    let g_cursor_pos_symbol: PositionStartLine = $state({
-        start_position: 0,
-        position: 0,
-        start: false,
-        collapsed: true,
-        amount_words: 1,
-        empty_node: false,
+    let g_position_cursor_and_node: IndexTargetNodeAndWordsForConvert = $state({
+        cursor_start: 0,
+        cursor_end: 0,
+        word_in_node_start: 0,
+        word_in_node_end: 0,
+        node_start : 0,
+        node_end : 0,
+        cursor_collapsed: true,
     });
     
     /*==================================================*/
     /*=== Interface ====================================*/
 
-    interface TargetNodeForConvert {
-        node: Node;
-        flag: string;
-    }
-    
-    interface TargetNodeAndWordsForConvert {
-        start_node: Node;
-        index_start_word_in_node: number;
-        amount_words: number;
-        flag: string;
+    interface IndexTargetNodeAndWordsForConvert{
+        cursor_start: number;
+        cursor_end: number;
+        word_in_node_start: number;
+        word_in_node_end: number;
+        node_start: number;
+        node_end: number;
+        cursor_collapsed: boolean;
     }
 
-    interface PositionStartLine {
-        start_position: number;
-        position: number;
-        start: boolean;
-        collapsed: boolean;
-        amount_words: number;
-        empty_node: boolean;
-    }
-    
     //==============================================================================================
     //================================================================================ Load Page ===
     function LoadElementDOM(): void {
@@ -51,19 +35,16 @@
 
         g_block_write_El.addEventListener("click", ClickFieldBlockWrite);
         g_mini_console_El.addEventListener("keydown", EnteredCommandIntoMiniConsole);
-
-        // SetVariableTreeWalker();
     }
     onMount(LoadElementDOM);
 
     
     //========================================================================================================
     //================================================================================ Set Global Variable ===
-
-    // Create TreeWalker
-    function SetVariableTreeWalker(element_focus: Element = g_block_write_El): void {
-        g_tree_block_write = document.createTreeWalker(
-            element_focus,
+    
+    function SetTreeWalkerForBlockWrite(): TreeWalker{
+        return document.createTreeWalker(
+            g_block_write_El,
             NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
             {
                 acceptNode(node) {
@@ -77,10 +58,10 @@
             }
         );
     }
-    
+
     // Finding and Set the value cursor position
     function SetVariableCursorPosition(): void {
-        // Value for interface position
+        // Get all position
         let index_pos_cursor_start: number=0;
         let index_pos_cursor_end: number=0;
         let index_word_in_node_start: number=0;
@@ -92,6 +73,8 @@
         let global_position_end: number=0;
         let global_position_start: number=0;
         let cursor_collapsed: boolean=true;
+
+        let tree_block_write: TreeWalker=SetTreeWalkerForBlockWrite();
 
         let element_select: Selection = window.getSelection()!;
         let node_rang: Range=element_select.getRangeAt(0);
@@ -105,8 +88,10 @@
 
         cursor_collapsed=node_rang.collapsed;
         if(!cursor_collapsed){
+            // Calculate the global value of the start position of the cursor 
             global_rang.setStart(node_rang.startContainer, node_rang.startOffset);
-            let select_text_length: number=global_rang.toString().length;
+            let select_text: string=global_rang.toString();
+            let select_text_length: number=select_text.length;
             global_position_start=global_position_end-select_text_length;
         }
         else{
@@ -115,10 +100,10 @@
 
         //<--- Set: index_node_start, index_node_end, index_pos_cursor_start, index_pos_cursor_end
         let count_symbol_global: number=0;
-        let block_write_nodes: Element[] = Array.from(g_block_write_El.children);
         let check_adding_index_node_start: boolean=true;
-        for(var block_write_node of block_write_nodes){
-            let node_content: string=block_write_node.textContent;
+        let current_node: Node;
+        while(current_node=tree_block_write?.nextNode() as Node){
+            let node_content: string=current_node.textContent || "";
             let node_content_length: number=node_content.length;
             count_symbol_global+=node_content_length;
 
@@ -148,14 +133,19 @@
             // adding one to the index of the end node
             index_node_end++;
         }
+        // I'm going back to the first node.
+        if(tree_block_write) tree_block_write.currentNode = g_block_write_El;
 
         if(cursor_collapsed){
             index_pos_cursor_start=index_pos_cursor_end;
             index_node_start=index_node_end;
         }
 
-        let list_words_in_node_start: string[] = text_node_start.split(" ");
-        let list_words_in_node_end: string[] = text_node_end.split(" ");
+        let list_words_in_node_start: string[] = text_node_start.split(" ").filter(x=>(x!=""));
+        let list_words_in_node_end: string[] = text_node_end.split(" ").filter(x=>(x!=""));
+        /*====== Check empty value ======*/
+        //    "Myths are  ancient tales" => [ "Myths", "are", "", "ancient", "tales" ]
+        //    +filter() =>  ["Myths", "are", "ancient", "tales"]
 
         //<--- Set: index_word_in_node_end
         count_symbol_global=0;
@@ -181,62 +171,47 @@
         else{
             index_word_in_node_start=index_word_in_node_end;
         }
+
+        g_position_cursor_and_node={
+            cursor_start: index_pos_cursor_start,
+            cursor_end: index_pos_cursor_end,
+            word_in_node_start: index_word_in_node_start,
+            word_in_node_end: index_word_in_node_end,
+            node_start: index_node_start,
+            node_end: index_node_end,
+            cursor_collapsed: cursor_collapsed,
+        }
     }
 
 
     function SetCursorPosition(): void {
-        SetVariableTreeWalker();
+        let index_target_node: number=g_position_cursor_and_node.node_end;
+        let index_target_word_in_node: number=g_position_cursor_and_node.cursor_end;
 
-        let count_symbol: number = 0;
+        let tree_block_write: TreeWalker=SetTreeWalkerForBlockWrite();
         let current_node: Node | null;
+        let count_index_node: number=0;
 
-        while(g_tree_block_write?.nextNode())
-        {
-            current_node = g_tree_block_write.currentNode ?? null;
-            let length_str_current_node = current_node.nodeValue?.length ?? 0;
-
-            if(count_symbol+length_str_current_node >= g_cursor_pos_symbol.position)
-            {
-                let position_on_line: number = 0;
-                let new_range: Range = document.createRange();
+        while((current_node=tree_block_write?.nextNode())){
+            if(count_index_node==index_target_node){
+                let new_range: Range=document.createRange();
                 new_range.collapse(true);
-                if(g_cursor_pos_symbol.start && g_cursor_pos_symbol.position!=0)
-                {
-                    g_tree_block_write?.nextNode();
-                    current_node = g_tree_block_write.currentNode ?? null;
-                    position_on_line=0;
-                }
-                else{
-                    position_on_line=g_cursor_pos_symbol.position-count_symbol;
-                }
-
-                // Checking the compliance of the lines
-                if(g_cursor_pos_symbol.empty_node != (current_node.nodeValue==null))
-                {
-                    g_tree_block_write?.nextNode();
-                    current_node = g_tree_block_write.currentNode ?? null;
-                }
-
-                new_range.setStart(current_node, position_on_line);
-                
+                new_range.setStart(current_node, index_target_word_in_node);
 
                 let select_el = window.getSelection();
                 if(select_el){
                     select_el.removeAllRanges();
                     select_el.addRange(new_range);
                 }
-
-                g_tree_block_write.currentNode = g_block_write_El;
-                return;
             }
-            count_symbol+=length_str_current_node;
+            count_index_node++;
         }
     }
-
 
     //===========================================================================================================
     //================================================================================ Hotkey & Walk Tree DOM ===
       
+    
     // If you click on a field (block_write), it is in the focus variable (g_focus_block)
     function ClickFieldBlockWrite(): void {
         if(g_focus_block==="mini_console")
@@ -377,8 +352,6 @@
     //--------------------------------------------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Find Line in TreeWalker and Function Convert Call ---
     function FindAndConvertLineInTreeDOM(CallFunc: (i_target: TargetNodeForConvert)=> void, parameter_func: string = ""): void {
-        SetVariableTreeWalker();
-
         let count_symbol: number = 0;
         let current_node: Node | null;
         let i_target: TargetNodeForConvert;
@@ -422,8 +395,6 @@
     //---------------------------------------------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Find Words in TreeWalker and Function Convert Call ---
     function FindAndConvertWordsInTreeDOM(CallFunc: (i_target: TargetNodeAndWordsForConvert)=>void, parameter_func: string=""): void {
-        SetVariableTreeWalker();
-
         let count_symbol_in_each_line: number = 0;
         let current_node: Node | null;
         let current_node_str: string;
