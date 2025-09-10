@@ -12,8 +12,6 @@
         node_start : 0,
         node_end : 0,
         cursor_collapsed: true,
-        obj_node_start: null,
-        obj_node_end: null,
     });
     
     /*==================================================*/
@@ -27,8 +25,6 @@
         node_start: number;
         node_end: number;
         cursor_collapsed: boolean;
-        obj_node_start: Node | null;
-        obj_node_end: Node | null;
     }
 
     interface TargetNodeAndFlag{
@@ -97,14 +93,14 @@
             event.stopPropagation();
 
             SetVariableCursorPosition();
-            HandleFuncConvert(ConvertLineTextToList, "find");
+            FindAndConvertLineInTreeDOM(ConvertLineTextToList, "find");
             SetCursorPosition();
         }
         else if(event.ctrlKey && event.key==="b"){
             event.preventDefault();
             event.stopPropagation();
             SetVariableCursorPosition();
-            HandleFuncConvert(ConvertWordsAddTextDecoration, "b");
+            FindAndConvertWordsInTreeDOM(ConvertWordsAddTextDecoration, "b");
             SetCursorPosition();
         }
     }
@@ -129,7 +125,7 @@
                 wit_console_command.length === 2 &&
                 ["/", "1","2","3","4","5","6"].includes(wit_console_command[1])
             ){
-                HandleFuncConvert(ConvertLineTextToHeader, wit_console_command[1]);
+                FindAndConvertLineInTreeDOM(ConvertLineTextToHeader, wit_console_command[1]);
             }
         }
         /*==============================*/
@@ -141,7 +137,7 @@
                 wit_console_command.length === 2 &&
                 ["/", "d", "n"].includes(wit_console_command[1])
             ){
-                HandleFuncConvert(ConvertLineTextToList, wit_console_command[1]);
+                FindAndConvertLineInTreeDOM(ConvertLineTextToList, wit_console_command[1]);
             }
         }
         /*==================================*/
@@ -150,10 +146,10 @@
         else if(wit_console_command.slice(0,2)==="nl"){
             /*----- dot, number -----*/
             if(wit_console_command.length <= 2){
-                HandleFuncConvert(ConvertLineTextToAddNewLine, "1");
+                FindAndConvertLineInTreeDOM(ConvertLineTextToAddNewLine, "1");
             }
             else{
-                HandleFuncConvert(ConvertLineTextToAddNewLine, wit_console_command[2]);
+                FindAndConvertLineInTreeDOM(ConvertLineTextToAddNewLine, wit_console_command[2]);
             }
  
         }
@@ -163,16 +159,20 @@
         else if(wit_console_command.slice(0,2)==="td"){
             // else if(wit_console_command[0]==="t"){
             /*----- bold -----*/
-            if(["b", "i", "u"].includes(wit_console_command[2])){
-                HandleFuncConvert(ConvertWordsAddTextDecoration, wit_console_command[2]);
+            if(wit_console_command[2]==="b"){
+                FindAndConvertWordsInTreeDOM(ConvertWordsAddTextDecoration, wit_console_command[2]);
             }
+            else{
+                // FindAndConvertWordsInTreeDOM(ConvertLineTextToAddNewLine, wit_console_command[2]);
+            }
+ 
         }
         /*======================================*/
         /*============ Delete Style ============*/
         /*======================================*/
         else if(wit_console_command[0]==="/"){
             if(wit_console_command.length===1){
-                HandleFuncConvert(ConvertLineTextDeleteStyle);
+                FindAndConvertLineInTreeDOM(ConvertLineTextDeleteStyle);
             }
         }
 
@@ -190,10 +190,10 @@
             {
                 acceptNode(node) {
                     if(node instanceof HTMLDivElement){
-                        if(node.parentNode===g_block_write_El){
-                            return NodeFilter.FILTER_ACCEPT;
-                        }
-                        return NodeFilter.FILTER_REJECT;
+                        return NodeFilter.FILTER_SKIP;
+                    }
+                    else if(node instanceof HTMLSpanElement){
+                        return NodeFilter.FILTER_SKIP;
                     }
                     else{
                         return NodeFilter.FILTER_REJECT;
@@ -206,6 +206,10 @@
     // Finding and Set the value cursor position
     function SetVariableCursorPosition(): void {
         let tree_block_write: TreeWalker=SetTreeWalkerForBlockWrite();
+        // while(tree_block_write.nextNode()){
+        //     L(tree_block_write.currentNode);
+        // }
+        // tree_block_write.currentNode=g_block_write_El;
 
         let val_node_start: Node | null=null;
         let val_node_end: Node | null=null;
@@ -222,6 +226,7 @@
         let global_position_start: number=0;
         let cursor_collapsed: boolean=true;
 
+        let tree_block_write: TreeWalker=SetTreeWalkerForBlockWrite();
 
         let element_select: Selection = window.getSelection()!;
         let node_rang: Range=element_select.getRangeAt(0);
@@ -251,14 +256,12 @@
         //<--- Set: index_node_start, index_node_end, index_pos_cursor_start, index_pos_cursor_end
         let count_symbol_global: number=0;
         let check_adding_index_node_start: boolean=true;
-        let check_set_node_start: boolean=true;
         let current_node: Node;
         L("==========={Node walker}===============");
         while(current_node=tree_block_write?.nextNode() as Node){
             let node_content: string=current_node.textContent || "";
             let node_content_length: number=node_content.length;
             count_symbol_global+=node_content_length;
-            L(current_node);
             L(node_content);
             // checking the starting node
             if(
@@ -269,7 +272,6 @@
             ){
                 index_pos_cursor_start=node_content_length-(count_symbol_global-global_position_start);
                 check_adding_index_node_start=false;
-                val_node_start=current_node;
             }
 
 
@@ -279,7 +281,6 @@
                 node_content.slice(0,50)==text_node_end.slice(0,50)
             ){
                 index_pos_cursor_end=node_content_length-(count_symbol_global-global_position_end);
-                val_node_end=current_node;
                 break;
             }
 
@@ -294,7 +295,6 @@
         if(cursor_collapsed){
             index_pos_cursor_start=index_pos_cursor_end;
             index_node_start=index_node_end;
-            val_node_start=val_node_end;
         }
 
         let list_words_in_node_start: string[] = text_node_start.split(" ").filter(x=>(x!=""));
@@ -336,8 +336,6 @@
             node_start: index_node_start,
             node_end: index_node_end,
             cursor_collapsed: cursor_collapsed,
-            obj_node_start: val_node_start,
-            obj_node_end: val_node_end,
         }
         L("==========={g_position_cursor_and_node}===============");
         L(index_node_end);
@@ -373,15 +371,105 @@
 
     //------------------------------------------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Find Node in Tree DOM and Function Convert Call ---
-    function HandleFuncConvert(CallFunc: (i_target: TargetNodeAndFlag)=> void, parameter_func: string = ""): void{
-        let i_target: TargetNodeAndFlag={
-            target_node: g_position_cursor_and_node.obj_node_end as Node,
-            flag: parameter_func,
+    function FindAndConvertLineInTreeDOM(CallFunc: (i_target: TargetNodeAndFlag)=> void, parameter_func: string = ""): void{
+        let index_target_node: number=g_position_cursor_and_node.node_end;
+        let index_target_word_in_node: number=g_position_cursor_and_node.cursor_end;
+        let i_target :TargetNodeAndFlag;
+
+        let tree_block_write: TreeWalker=SetTreeWalkerForBlockWrite();
+        let current_node: Node | null;
+        let count_index_node: number=0;
+
+
+        while((current_node=tree_block_write?.nextNode())){
+            if(count_index_node==index_target_node){
+                i_target={
+                    target_node: current_node,
+                    flag: parameter_func,
+                }
+                CallFunc(i_target);
+                return;
+            }
+            count_index_node++;
         }
-        CallFunc(i_target);
     }
-    
-    
+
+    //---------------------------------------------------------------------------------------------------------------------------------------
+    //-------------------------------------------------------------------------------- Find Words in TreeWalker and Function Convert Call ---
+    function FindAndConvertWordsInTreeDOM(CallFunc: (i_target: TargetNodeAndWordsForConvert)=>void, parameter_func: string=""): void {
+        let count_symbol_in_each_line: number = 0;
+        let current_node: Node | null;
+        let current_node_str: string;
+        let list_words_in_node: string[];
+        let i_target: TargetNodeAndWordsForConvert;
+
+        while(g_tree_block_write?.nextNode())
+        {
+            current_node = g_tree_block_write.currentNode ?? null;
+            current_node_str = current_node.nodeValue ?? "";
+            let length_str_current_node = current_node_str.length ?? 0;
+
+            if(count_symbol_in_each_line+length_str_current_node >= g_cursor_pos_symbol.start_position)
+            {
+                let index_cursor_in_line: number = g_cursor_pos_symbol.start_position-count_symbol_in_each_line;
+                L(index_cursor_in_line);
+                let index_word_in_node: number=0;
+                if(g_cursor_pos_symbol.start)
+                {
+                    g_tree_block_write?.nextNode();
+                    index_word_in_node=0;
+                }
+                else
+                {
+                    let count_index_word: number=0;
+                    list_words_in_node=current_node_str.trim().split(" ");
+
+                    // if the text is not selected
+                    if(g_cursor_pos_symbol.collapsed){
+                        for(var word_in_node of list_words_in_node){
+                            count_index_word+=word_in_node.length;
+                            if(count_index_word<index_cursor_in_line){
+                                index_word_in_node++;
+                            }
+                            else{
+                                break;
+                            }
+                            count_index_word++;
+                        }
+                    }
+                    // if the text was selected
+                    else{
+                        for(var word_in_node of list_words_in_node){
+                            count_index_word+=word_in_node.length-1;
+                            if(count_index_word<index_cursor_in_line){
+                                index_word_in_node++;
+                            }
+                            else{
+                                break;
+                            }
+                            count_index_word++;
+                        }
+                    }
+                }
+                L(index_word_in_node);
+
+
+				// i_target={
+                //     start_node: current_node,
+                //     index_start_word_in_node: index_start_word,
+                //     amount_words: g_cursor_pos_symbol.amount_words,
+                //     flag: parameter_func
+				// }
+				// CallFunc(i_target);
+
+
+				// g_tree_block_write.currentNode = g_block_write_El;
+				return;
+            }
+            count_symbol_in_each_line+=length_str_current_node;
+        }
+    }
+
     //======================================================================================================
     //================================================================================ Convert Line Text ===
 
@@ -393,26 +481,28 @@
         let node_content = target_node?.textContent ?? "";
         let parent_element = target_node as HTMLDivElement;
 
-        // delete: title
-        parent_element.style.fontSize = "16px";
-        parent_element.style.fontWeight = "300";
-        // delete: list
-        parent_element.style.padding = "0px";
-        // delete: dot list
-        if(node_content[0]==="•" && node_content[1]===" "){
-            parent_element.textContent = parent_element.textContent?.slice(2) ?? "";
-        }
-        // delete: number list
-        else if(["0","1","2","3","4","5","6","7","8","9"].includes(node_content[0]))
-        {
-            let num_pos_bracket_node: number = node_content.indexOf(")");
-            let serial_number_node: number = Number(node_content.slice(0,num_pos_bracket_node));
-            if(num_pos_bracket_node!==-1 && !isNaN(serial_number_node))
+            // delete: title
+            parent_element.style.fontSize = "16px";
+            parent_element.style.fontWeight = "300";
+            // delete: list
+            parent_element.style.padding = "0px";
+            // delete: dot list
+            if(node_content[0]==="•" && node_content[1]===" "){
+                parent_element.textContent = parent_element.textContent?.slice(2) ?? "";
+            }
+            // delete: number list
+            else if(["0","1","2","3","4","5","6","7","8","9"].includes(node_content[0]))
             {
-                parent_element.textContent = node_content.slice(num_pos_bracket_node+2);
+                let num_pos_bracket_node: number = node_content.indexOf(")");
+                let serial_number_node: number = Number(node_content.slice(0,num_pos_bracket_node));
+                if(num_pos_bracket_node!==-1 && !isNaN(serial_number_node))
+                {
+                    parent_element.textContent = node_content.slice(num_pos_bracket_node+2);
+                }
             }
         }
     }
+
 
     //-------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Header ---
@@ -451,6 +541,8 @@
         }
     }
 
+
+    //! Error, return: <empty string>
     //------------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- List: dot, number ---
     function ConvertLineTextToList(i_target: TargetNodeAndFlag): void {
@@ -494,40 +586,40 @@
         {
             parent_element.style.paddingLeft = "20px";
 
-            tree_block_write.currentNode = target_node;
-            let previous_element_content: string = tree_block_write?.previousNode()?.textContent ?? "";
-            let num_pos_bracket_previous: number = previous_element_content.indexOf(")");
-            if(num_pos_bracket_previous===-1){
-                parent_element.textContent = `1) ${parent_element.textContent}`;
-            }
-            else{
-                let serial_number_parent: number = Number(previous_element_content.slice(0,num_pos_bracket_previous));
-                if(!isNaN(serial_number_parent))
-                {
-                    let parent_element_content = parent_element.textContent;
-                    let num_pos_bracket: number = parent_element_content.indexOf(")");
-                    let serial_number: number = Number(parent_element_content.slice(0,num_pos_bracket));
-                    if(num_pos_bracket!==-1 && !isNaN(serial_number)){
-                        parent_element.textContent = `${serial_number_parent+1}) ${parent_element_content.slice(num_pos_bracket+2)}`;
-                    }
-                    else{
-                        parent_element.textContent = `${serial_number_parent+1}) ${parent_element_content}`;
+                tree_block_write.currentNode = target_node;
+                let previous_element_content: string = tree_block_write?.previousNode()?.textContent ?? "";
+                let num_pos_bracket_previous: number = previous_element_content.indexOf(")");
+                if(num_pos_bracket_previous===-1){
+                    parent_element.textContent = `1) ${parent_element.textContent}`;
+                }
+                else{
+                    let serial_number_parent: number = Number(previous_element_content.slice(0,num_pos_bracket_previous));
+                    if(!isNaN(serial_number_parent))
+                    {
+                        let parent_element_content = parent_element.textContent;
+                        let num_pos_bracket: number = parent_element_content.indexOf(")");
+                        let serial_number: number = Number(parent_element_content.slice(0,num_pos_bracket));
+                        if(num_pos_bracket!==-1 && !isNaN(serial_number)){
+                            parent_element.textContent = `${serial_number_parent+1}) ${parent_element_content.slice(num_pos_bracket+2)}`;
+                        }
+                        else{
+                            parent_element.textContent = `${serial_number_parent+1}) ${parent_element_content}`;
+                        }
                     }
                 }
             }
-        }
-        else if(name_flag==="find")
-        {
-            tree_block_write.currentNode = target_node;
-            let previous_element_content = tree_block_write?.previousNode()?.textContent ?? "";
-            if(previous_element_content[0]==="•")
+            else if(name_flag==="find")
             {
-                parent_element.style.paddingLeft = "20px";
-                parent_element.textContent = "•" + " " + parent_element.textContent;
-            }
-            else if(["0","1","2","3","4","5","6","7","8","9"].includes(previous_element_content[0]))
-            {
-                parent_element.style.paddingLeft = "20px";
+                tree_block_write.currentNode = target_node;
+                let previous_element_content = tree_block_write?.previousNode()?.textContent ?? "";
+                if(previous_element_content[0]==="•")
+                {
+                    parent_element.style.paddingLeft = "20px";
+                    parent_element.textContent = "•" + " " + parent_element.textContent;
+                }
+                else if(["0","1","2","3","4","5","6","7","8","9"].includes(previous_element_content[0]))
+                {
+                    parent_element.style.paddingLeft = "20px";
 
                 let num_pos_bracket_previous: number = previous_element_content.indexOf(")");
                 if(num_pos_bracket_previous===-1){
@@ -553,6 +645,7 @@
         // }
     }
 
+
     //----------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Half new line ---
     function ConvertLineTextToAddNewLine(i_target: TargetNodeAndFlag): void {
@@ -569,73 +662,125 @@
         }
     }
 
+
     //=======================================================================================================
     //================================================================================ Convert Words Text ===
 
     //-------------------------------------------------------------------------------------------------------
-    //-------------------------------------------------------------------------------- Bold & Italic & Underline Font ---
-    function ConvertWordsAddTextDecoration(i_target: TargetNodeAndFlag): void {
+    //-------------------------------------------------------------------------------- Bold & Italic Font ---
+    function ConvertWordsAddTextDecoration(i_target: TargetNodeAndWordsForConvert): void {
+        L(i_target.amount_words);
         if(i_target.flag==="b"){
-            ConvertWordToBoldFont();
+            if(i_target.amount_words==1){
+                ConvertWordToBoldFont(i_target);
+            }
+            else{
+                ConvertWordsToBoldFont(i_target);
+            }
         }
     }
 
     //----------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Bold Font ---
-    function ConvertWordToBoldFont(): void{
-        let index_word_in_node_start: number=g_position_cursor_and_node.word_in_node_start;
-        let index_word_in_node_end: number=g_position_cursor_and_node.word_in_node_end;
-        let node_start: Node | null = g_position_cursor_and_node.obj_node_start;
-        let node_end: Node | null = g_position_cursor_and_node.obj_node_end;
+    function ConvertWordToBoldFont(i_target: TargetNodeAndWordsForConvert): void{
+        let start_node: Node = i_target.start_node;
+        let index_select_word: number=i_target.index_start_word_in_node;
+        let first_node_fragment: DocumentFragment = document.createDocumentFragment();
 
-        // let fragment_convert_text: DocumentFragment = document.createDocumentFragment();
-        let fragment_convert_text: HTMLDivElement = document.createElement("div");
-        let list_words_in_node: string[]=node_start?.textContent?.split(" ") ?? [""];
-
+        
+        let list_words_in_current_node: string[] = i_target.start_node.nodeValue?.trim().split(" ") || [""];
+        let list_words_len: number=list_words_in_current_node.length;
+        
         let count_index_word: number=0;
-        if(node_start==node_end)
+        //<--- text before the selected word
+        L("before--------------------------------------------------------");
+        for(count_index_word; count_index_word<index_select_word; count_index_word++)
         {
-            let list_words_length=list_words_in_node.length
-            for(var index_word_node=0; index_word_node<list_words_length; index_word_node++)
-            {
-                if(index_word_node>=index_word_in_node_start && index_word_node<=index_word_in_node_end && list_words_in_node[index_word_node]!="")
-                {
-                    let el_word_convert: HTMLSpanElement=document.createElement("span");
-                    el_word_convert.textContent=list_words_in_node[index_word_node];
-                    el_word_convert.style.fontWeight="600";
-                    el_word_convert.className="wtr_word_textDecoration_bold";
-
-                    fragment_convert_text.appendChild(el_word_convert);
-                    if(index_word_node!=list_words_length-1){
-                        fragment_convert_text.appendChild(document.createTextNode(" "));
-                    }
+            let target_word: string=list_words_in_current_node[count_index_word];
+            L(target_word);
+            let word_not_convert: Text;
+            word_not_convert = document.createTextNode(target_word+" ");
+            first_node_fragment.appendChild(word_not_convert);
+        }
+        //<--- convert select word
+        L("select--------------------------------------------------------");
+        if(count_index_word==index_select_word){
+            L(list_words_in_current_node[count_index_word]);
+            let el_word_convert: HTMLSpanElement = document.createElement("span");
+            /*--- Font Bold ---*/
+            if(i_target.flag=="b"){
+                if(count_index_word==list_words_len-1){
+                    el_word_convert.textContent=list_words_in_current_node[count_index_word];
                 }
                 else{
-                    if(list_words_in_node[index_word_node]!=""){
-                        fragment_convert_text.appendChild(document.createTextNode(list_words_in_node[index_word_node]));
-                    }
-                    else{
-                        fragment_convert_text.appendChild(document.createTextNode(" "));
-                    }
-
-                    
-                    if(index_word_node!=list_words_length-1){
-                        fragment_convert_text.appendChild(document.createTextNode(" "));
-                    }
+                    el_word_convert.textContent=list_words_in_current_node[count_index_word]+" ";
                 }
+                el_word_convert.style.fontWeight="600";
+                el_word_convert.className="wtr_textDecoration_bold";
             }
-            L("===========================>");
-            L(node_start?.parentElement);
-            L("<===========================");
-            node_start?.parentElement?.replaceWith(fragment_convert_text);
-            node_start?.parentElement?.normalize();
-            // node_start?.parentElement?.replaceChild(fragment_convert_text, node_start);
-        }
 
+            first_node_fragment.appendChild(el_word_convert);
+            count_index_word++;
+        }
+        //<--- text after the select word
+        L("after--------------------------------------------------------");
+        for(count_index_word; count_index_word<list_words_len; count_index_word++)
+        {
+            let target_word: string=list_words_in_current_node[count_index_word];
+            L(`?End ${target_word}`);
+            let word_not_convert: Text;
+            if(count_index_word==list_words_len-1){
+                word_not_convert = document.createTextNode(target_word);
+            }
+            else{
+                word_not_convert = document.createTextNode(target_word+" ");
+            }
+            first_node_fragment.appendChild(word_not_convert);
+        }
+        
+        start_node.parentElement?.replaceChild(first_node_fragment, start_node);
     }
 
-    function ConvertWordsToItalicFont(current_node: Node): void{
+    function ConvertWordsToBoldFont(i_target: TargetNodeAndWordsForConvert): void{
+        let start_node: Node = i_target.start_node;
+        let count_words: number=0;
+        let first_node_fragment: DocumentFragment = document.createDocumentFragment();
 
+        let list_words_in_current_node: string[] = i_target.start_node.nodeValue?.trim().split(" ") || [""];
+        let list_words_len: number=list_words_in_current_node.length;
+        for(var index_word=0; index_word<list_words_len; index_word++)
+        {
+            let target_word: string=list_words_in_current_node[index_word];
+
+            // create an element of type (text)
+            if(index_word<i_target.index_start_word_in_node || count_words>=i_target.amount_words){
+                let word_not_convert: Text;
+                if(index_word==list_words_len-1){
+                    word_not_convert = document.createTextNode(target_word);
+                }
+                else{
+                    word_not_convert = document.createTextNode(target_word+" ");
+                }
+                first_node_fragment.appendChild(word_not_convert);
+                continue;
+            };
+
+            // create an element (span) for the word and convert it
+            let el_word_convert: HTMLSpanElement = document.createElement("span");
+            el_word_convert.textContent=target_word;
+            el_word_convert.style.fontWeight="600";
+            el_word_convert.className="wtr_textDecoration_bold";
+
+            first_node_fragment.appendChild(el_word_convert);
+            if(index_word!=list_words_len){
+                first_node_fragment.appendChild(document.createTextNode(" "));
+            }
+
+            count_words++;
+        }
+        start_node.parentElement?.replaceChild(first_node_fragment, start_node);
+
+        if(count_words>=i_target.amount_words) return;
     }
 
     
@@ -667,7 +812,7 @@
 
         <!-- <div>Title 1</div><div>pop</div><div>kik</div><div>xcx</div><div><br></div><div>Title 2</div><div>loli</div><div>:)</div><div><br></div><div>Title 3</div><div>up &amp; down</div><div><br></div><div>@End</div> -->
 
-        <div>Myths are ancient, timeless tales,</div><div><br></div><div>Of gods and heroes, monsters, and whales.</div><div><br></div><div>They tried to explain the world's creation,</div><div>And <span style="font-weight: 600">teach</span> a les-son to every nation.</div><div>More than just stories from long ago,</div><div>They show us truths that we all know.</div>
+        <div>Myths are ancient, timeless tales,</div><div><br></div><div>Of gods and heroes, monsters, and whales.</div><div><br></div><div>They tried to explain the world's creation,</div><div>And teach a les-son to every nation.</div><div>More than just stories from long ago,</div><div>They show us truths that we all know.</div>
     </div>
 
     <input
