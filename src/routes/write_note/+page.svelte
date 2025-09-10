@@ -186,17 +186,17 @@
     function SetTreeWalkerForBlockWrite(): TreeWalker{
         return document.createTreeWalker(
             g_block_write_El,
-            NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+            NodeFilter.SHOW_ELEMENT,
             {
                 acceptNode(node) {
                     if(node instanceof HTMLDivElement){
-                        return NodeFilter.FILTER_SKIP;
-                    }
-                    else if(node instanceof HTMLSpanElement){
-                        return NodeFilter.FILTER_SKIP;
+                        if(node.parentNode===g_block_write_El){
+                            return NodeFilter.FILTER_ACCEPT;
+                        }
+                        return NodeFilter.FILTER_REJECT;
                     }
                     else{
-                        return NodeFilter.FILTER_ACCEPT;
+                        return NodeFilter.FILTER_REJECT;
                     }
                 }
             }
@@ -206,10 +206,6 @@
     // Finding and Set the value cursor position
     function SetVariableCursorPosition(): void {
         let tree_block_write: TreeWalker=SetTreeWalkerForBlockWrite();
-        // while(tree_block_write.nextNode()){
-        //     L(tree_block_write.currentNode);
-        // }
-        // tree_block_write.currentNode=g_block_write_El;
 
         let val_node_start: Node | null=null;
         let val_node_end: Node | null=null;
@@ -237,6 +233,9 @@
         let text_node_start: string=node_rang.startContainer.textContent || "";
         let text_node_end: string=node_rang.endContainer.textContent || "";
 
+        L("==========={Rang}===============");
+        L(global_rang.toString());
+
         cursor_collapsed=node_rang.collapsed;
         if(!cursor_collapsed){
             // Calculate the global value of the start position of the cursor 
@@ -254,10 +253,12 @@
         let check_adding_index_node_start: boolean=true;
         let check_set_node_start: boolean=true;
         let current_node: Node;
+        L("==========={Node walker}===============");
         while(current_node=tree_block_write?.nextNode() as Node){
             let node_content: string=current_node.textContent || "";
             let node_content_length: number=node_content.length;
             count_symbol_global+=node_content_length;
+            L(current_node);
             L(node_content);
             // checking the starting node
             if(
@@ -338,6 +339,10 @@
             obj_node_start: val_node_start,
             obj_node_end: val_node_end,
         }
+        L("==========={g_position_cursor_and_node}===============");
+        L(index_node_end);
+        L(index_word_in_node_end);
+        L(index_pos_cursor_end);
     }
 
 
@@ -385,28 +390,26 @@
     function ConvertLineTextDeleteStyle(i_target: TargetNodeAndFlag): void{
         let target_node: Node = i_target.target_node;
 
-        if(target_node.parentElement){
-            let node_content = target_node?.textContent ?? "";
-            let parent_element = target_node.parentElement;
+        let node_content = target_node?.textContent ?? "";
+        let parent_element = target_node as HTMLDivElement;
 
-            // delete: title
-            parent_element.style.fontSize = "16px";
-            parent_element.style.fontWeight = "300";
-            // delete: list
-            parent_element.style.padding = "0px";
-            // delete: dot list
-            if(node_content[0]==="•" && node_content[1]===" "){
-                parent_element.textContent = parent_element.textContent?.slice(2) ?? "";
-            }
-            // delete: number list
-            else if(["0","1","2","3","4","5","6","7","8","9"].includes(node_content[0]))
+        // delete: title
+        parent_element.style.fontSize = "16px";
+        parent_element.style.fontWeight = "300";
+        // delete: list
+        parent_element.style.padding = "0px";
+        // delete: dot list
+        if(node_content[0]==="•" && node_content[1]===" "){
+            parent_element.textContent = parent_element.textContent?.slice(2) ?? "";
+        }
+        // delete: number list
+        else if(["0","1","2","3","4","5","6","7","8","9"].includes(node_content[0]))
+        {
+            let num_pos_bracket_node: number = node_content.indexOf(")");
+            let serial_number_node: number = Number(node_content.slice(0,num_pos_bracket_node));
+            if(num_pos_bracket_node!==-1 && !isNaN(serial_number_node))
             {
-                let num_pos_bracket_node: number = node_content.indexOf(")");
-                let serial_number_node: number = Number(node_content.slice(0,num_pos_bracket_node));
-                if(num_pos_bracket_node!==-1 && !isNaN(serial_number_node))
-                {
-                    parent_element.textContent = node_content.slice(num_pos_bracket_node+2);
-                }
+                parent_element.textContent = node_content.slice(num_pos_bracket_node+2);
             }
         }
     }
@@ -417,36 +420,34 @@
         let target_node: Node = i_target.target_node;
         let name_flag: string=i_target.flag;
 
-        if(target_node.parentElement){
-            let parent_element: HTMLElement = target_node.parentElement;
-            if(name_flag==="/"){
-                parent_element.style.fontSize = "16px";
-                parent_element.style.fontWeight = "300";
-            }
-            else if(name_flag==="1"){
-                parent_element.style.fontSize = "40px";
-                parent_element.style.fontWeight = "600";
-            }
-            else if(name_flag==="2"){
-                parent_element.style.fontSize = "32px";
-                parent_element.style.fontWeight = "600";
-            }
-            else if(name_flag==="3"){
-                parent_element.style.fontSize = "24px";
-                parent_element.style.fontWeight = "600";
-            }
-            else if(name_flag==="4"){
-                parent_element.style.fontSize = "20px";
-                parent_element.style.fontWeight = "600";
-            }
-            else if(name_flag==="5"){
-                parent_element.style.fontSize = "16px";
-                parent_element.style.fontWeight = "600";
-            }
-            else if(name_flag==="6"){
-                parent_element.style.fontSize = "14px";
-                parent_element.style.fontWeight = "600";
-            }
+        let parent_element: HTMLElement = target_node as HTMLDivElement;
+        if(name_flag==="/"){
+            parent_element.style.fontSize = "16px";
+            parent_element.style.fontWeight = "300";
+        }
+        else if(name_flag==="1"){
+            parent_element.style.fontSize = "40px";
+            parent_element.style.fontWeight = "600";
+        }
+        else if(name_flag==="2"){
+            parent_element.style.fontSize = "32px";
+            parent_element.style.fontWeight = "600";
+        }
+        else if(name_flag==="3"){
+            parent_element.style.fontSize = "24px";
+            parent_element.style.fontWeight = "600";
+        }
+        else if(name_flag==="4"){
+            parent_element.style.fontSize = "20px";
+            parent_element.style.fontWeight = "600";
+        }
+        else if(name_flag==="5"){
+            parent_element.style.fontSize = "16px";
+            parent_element.style.fontWeight = "600";
+        }
+        else if(name_flag==="6"){
+            parent_element.style.fontSize = "14px";
+            parent_element.style.fontWeight = "600";
         }
     }
 
@@ -458,43 +459,76 @@
 
         let tree_block_write: TreeWalker=SetTreeWalkerForBlockWrite();
         
-        let parent_element: HTMLElement = target_node.parentElement as HTMLElement;
-        if(parent_element){
-            let parent_element: HTMLElement = target_node.parentElement as HTMLElement;
-            if(name_flag==="/")
+        // let parent_element: HTMLElement = target_node as HTMLElement;
+        // if(parent_element){
+        let parent_element: HTMLElement = target_node as HTMLElement;
+        if(name_flag==="/")
+        {
+            let parent_element_content = parent_element.textContent ?? "";
+            parent_element.style.paddingLeft = "0px";
+            
+            if(parent_element_content[0]==="•")
             {
-                let parent_element_content = parent_element.textContent ?? "";
-                parent_element.style.paddingLeft = "0px";
-                
-                if(parent_element_content[0]==="•")
-                {
-                    if(parent_element_content[1]===" "){
-                        parent_element.textContent = parent_element_content.slice(2);
-                    }
-                    else{
-                        parent_element.textContent = parent_element_content.slice(1);
-                    }
+                if(parent_element_content[1]===" "){
+                    parent_element.textContent = parent_element_content.slice(2);
                 }
-                else if(["0","1","2","3","4","5","6","7","8","9"].includes(parent_element_content[0]))
+                else{
+                    parent_element.textContent = parent_element_content.slice(1);
+                }
+            }
+            else if(["0","1","2","3","4","5","6","7","8","9"].includes(parent_element_content[0]))
+            {
+                let num_pos_bracket: number = parent_element_content.indexOf(")");
+                let serial_number: number = Number(parent_element_content.slice(0,num_pos_bracket));
+                if(!isNaN(serial_number) && parent_element_content[num_pos_bracket+1]===" "){
+                    parent_element.textContent = parent_element_content.slice(num_pos_bracket+2);
+                }
+            }
+        }
+        else if(name_flag==="d")
+        {
+            parent_element.style.paddingLeft = "20px";
+            parent_element.textContent = "•" + " " + parent_element.textContent;
+        }
+        else if(name_flag==="n")
+        {
+            parent_element.style.paddingLeft = "20px";
+
+            tree_block_write.currentNode = target_node;
+            let previous_element_content: string = tree_block_write?.previousNode()?.textContent ?? "";
+            let num_pos_bracket_previous: number = previous_element_content.indexOf(")");
+            if(num_pos_bracket_previous===-1){
+                parent_element.textContent = `1) ${parent_element.textContent}`;
+            }
+            else{
+                let serial_number_parent: number = Number(previous_element_content.slice(0,num_pos_bracket_previous));
+                if(!isNaN(serial_number_parent))
                 {
+                    let parent_element_content = parent_element.textContent;
                     let num_pos_bracket: number = parent_element_content.indexOf(")");
                     let serial_number: number = Number(parent_element_content.slice(0,num_pos_bracket));
-                    if(!isNaN(serial_number) && parent_element_content[num_pos_bracket+1]===" "){
-                        parent_element.textContent = parent_element_content.slice(num_pos_bracket+2);
+                    if(num_pos_bracket!==-1 && !isNaN(serial_number)){
+                        parent_element.textContent = `${serial_number_parent+1}) ${parent_element_content.slice(num_pos_bracket+2)}`;
+                    }
+                    else{
+                        parent_element.textContent = `${serial_number_parent+1}) ${parent_element_content}`;
                     }
                 }
             }
-            else if(name_flag==="d")
+        }
+        else if(name_flag==="find")
+        {
+            tree_block_write.currentNode = target_node;
+            let previous_element_content = tree_block_write?.previousNode()?.textContent ?? "";
+            if(previous_element_content[0]==="•")
             {
                 parent_element.style.paddingLeft = "20px";
                 parent_element.textContent = "•" + " " + parent_element.textContent;
             }
-            else if(name_flag==="n")
+            else if(["0","1","2","3","4","5","6","7","8","9"].includes(previous_element_content[0]))
             {
                 parent_element.style.paddingLeft = "20px";
 
-                tree_block_write.currentNode = target_node;
-                let previous_element_content: string = tree_block_write?.previousNode()?.textContent ?? "";
                 let num_pos_bracket_previous: number = previous_element_content.indexOf(")");
                 if(num_pos_bracket_previous===-1){
                     parent_element.textContent = `1) ${parent_element.textContent}`;
@@ -515,47 +549,14 @@
                     }
                 }
             }
-            else if(name_flag==="find")
-            {
-                tree_block_write.currentNode = target_node;
-                let previous_element_content = tree_block_write?.previousNode()?.textContent ?? "";
-                if(previous_element_content[0]==="•")
-                {
-                    parent_element.style.paddingLeft = "20px";
-                    parent_element.textContent = "•" + " " + parent_element.textContent;
-                }
-                else if(["0","1","2","3","4","5","6","7","8","9"].includes(previous_element_content[0]))
-                {
-                    parent_element.style.paddingLeft = "20px";
-
-                    let num_pos_bracket_previous: number = previous_element_content.indexOf(")");
-                    if(num_pos_bracket_previous===-1){
-                        parent_element.textContent = `1) ${parent_element.textContent}`;
-                    }
-                    else{
-                        let serial_number_parent: number = Number(previous_element_content.slice(0,num_pos_bracket_previous));
-                        if(!isNaN(serial_number_parent))
-                        {
-                            let parent_element_content = parent_element.textContent;
-                            let num_pos_bracket: number = parent_element_content.indexOf(")");
-                            let serial_number: number = Number(parent_element_content.slice(0,num_pos_bracket));
-                            if(num_pos_bracket!==-1 && !isNaN(serial_number)){
-                                parent_element.textContent = `${serial_number_parent+1}) ${parent_element_content.slice(num_pos_bracket+2)}`;
-                            }
-                            else{
-                                parent_element.textContent = `${serial_number_parent+1}) ${parent_element_content}`;
-                            }
-                        }
-                    }
-                }
-            }
         }
+        // }
     }
 
     //----------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Half new line ---
     function ConvertLineTextToAddNewLine(i_target: TargetNodeAndFlag): void {
-        let parent_element: HTMLElement | null = i_target.target_node.parentElement;
+        let parent_element: HTMLElement | null = i_target.target_node as HTMLDivElement;
         if(parent_element===null) return;
 
         if(i_target.flag=="/"){
