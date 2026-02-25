@@ -7,13 +7,11 @@
     let g_position_cursor_and_node: IndexTargetNodeAndWordsForConvert = $state({
         cursor_start: 0,
         cursor_end: 0,
-        word_in_node_start: 0,
-        word_in_node_end: 0,
-        node_start : 0,
-        node_end : 0,
+        node_line_start : 0,
+        node_line_end : 0,
         cursor_collapsed: true,
-        obj_node_start: null,
-        obj_node_end: null,
+        obj_node_line_start: null,
+        obj_node_line_end: null,
     });
     
     /*==================================================*/
@@ -22,13 +20,11 @@
     interface IndexTargetNodeAndWordsForConvert{
         cursor_start: number;
         cursor_end: number;
-        word_in_node_start: number;
-        word_in_node_end: number;
-        node_start: number;
-        node_end: number;
+        node_line_start: number;
+        node_line_end: number;
         cursor_collapsed: boolean;
-        obj_node_start: Node | null;
-        obj_node_end: Node | null;
+        obj_node_line_start: Node | null;
+        obj_node_line_end: Node | null;
     }
 
     interface TargetNodeAndFlag{
@@ -186,17 +182,17 @@
     function SetTreeWalkerForBlockWrite(): TreeWalker{
         return document.createTreeWalker(
             g_block_write_El,
-            NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+            NodeFilter.SHOW_ELEMENT,
             {
                 acceptNode(node) {
                     if(node instanceof HTMLDivElement){
-                        return NodeFilter.FILTER_SKIP;
-                    }
-                    else if(node instanceof HTMLSpanElement){
-                        return NodeFilter.FILTER_SKIP;
+                        if(node.parentNode==g_block_write_El){
+                            return NodeFilter.FILTER_ACCEPT
+                        }
+                        else return NodeFilter.FILTER_REJECT;
                     }
                     else{
-                        return NodeFilter.FILTER_ACCEPT;
+                        return NodeFilter.FILTER_REJECT;
                     }
                 }
             }
@@ -206,10 +202,6 @@
     // Finding and Set the value cursor position
     function SetVariableCursorPosition(): void {
         let tree_block_write: TreeWalker=SetTreeWalkerForBlockWrite();
-        // while(tree_block_write.nextNode()){
-        //     L(tree_block_write.currentNode);
-        // }
-        // tree_block_write.currentNode=g_block_write_El;
 
         let val_node_start: Node | null=null;
         let val_node_end: Node | null=null;
@@ -222,8 +214,8 @@
         let index_node_end: number=0;
         
         // Get global position cursor
-        let global_position_end: number=0;
         let global_position_start: number=0;
+        let global_position_end: number=0;
         let cursor_collapsed: boolean=true;
 
 
@@ -234,8 +226,6 @@
         global_rang.setEnd(node_rang.endContainer, node_rang.endOffset);
         
         global_position_end=global_rang.toString().length;
-        let text_node_start: string=node_rang.startContainer.textContent || "";
-        let text_node_end: string=node_rang.endContainer.textContent || "";
 
         cursor_collapsed=node_rang.collapsed;
         if(!cursor_collapsed){
@@ -257,14 +247,16 @@
         while(current_node=tree_block_write?.nextNode() as Node){
             let node_content: string=current_node.textContent || "";
             let node_content_length: number=node_content.length;
+            // L("============{Infa about current node}=============");
+            // L(current_node);
+            // L(node_content);
+            // L(node_content_length);
             count_symbol_global+=node_content_length;
-            L(node_content);
             // checking the starting node
             if(
                 check_adding_index_node_start &&
                 !cursor_collapsed &&
-                count_symbol_global>=global_position_start &&
-                node_content.slice(0,50)==text_node_start.slice(0,50)
+                count_symbol_global>=global_position_start
             ){
                 index_pos_cursor_start=node_content_length-(count_symbol_global-global_position_start);
                 check_adding_index_node_start=false;
@@ -273,10 +265,7 @@
 
 
             // checking the last node
-            if(
-                count_symbol_global>=global_position_end &&
-                node_content.slice(0,50)==text_node_end.slice(0,50)
-            ){
+            if(count_symbol_global>=global_position_end){
                 index_pos_cursor_end=node_content_length-(count_symbol_global-global_position_end);
                 val_node_end=current_node;
                 break;
@@ -296,64 +285,56 @@
             val_node_start=val_node_end;
         }
 
-        let list_words_in_node_start: string[] = text_node_start.split(" ").filter(x=>(x!=""));
-        let list_words_in_node_end: string[] = text_node_end.split(" ").filter(x=>(x!=""));
-        /*====== Check empty value ======*/
-        //    "Myths are  ancient tales" => [ "Myths", "are", "", "ancient", "tales" ]
-        //    +filter() =>  ["Myths", "are", "ancient", "tales"]
-
-        //<--- Set: index_word_in_node_end
-        count_symbol_global=0;
-        for(var word_in_node of list_words_in_node_end){
-            let word_in_node_length: number=word_in_node.length;
-            count_symbol_global+=word_in_node_length;
-            if(cursor_collapsed && count_symbol_global>=index_pos_cursor_end) break;
-            if(!cursor_collapsed && count_symbol_global+1>=index_pos_cursor_end) break;
-            count_symbol_global++;
-            index_word_in_node_end++;
-        }
-        //<--- Set: index_word_in_node_start
-        if(!cursor_collapsed){
-            count_symbol_global=0;
-            for(var word_in_node of list_words_in_node_start){
-                let word_in_node_length: number=word_in_node.length;
-                count_symbol_global+=word_in_node_length;
-                if(count_symbol_global-1>=index_pos_cursor_start) break;
-                count_symbol_global++;
-                index_word_in_node_start++;
-            }
-        }
-        else{
-            index_word_in_node_start=index_word_in_node_end;
-        }
-
         g_position_cursor_and_node={
             cursor_start: index_pos_cursor_start,
             cursor_end: index_pos_cursor_end,
-            word_in_node_start: index_word_in_node_start,
-            word_in_node_end: index_word_in_node_end,
-            node_start: index_node_start,
-            node_end: index_node_end,
+            node_line_start: index_node_start,
+            node_line_end: index_node_end,
             cursor_collapsed: cursor_collapsed,
-            obj_node_start: val_node_start,
-            obj_node_end: val_node_end,
+            obj_node_line_start: val_node_start,
+            obj_node_line_end: val_node_end,
         }
+        // L(g_position_cursor_and_node);
     }
 
 
     function SetCursorPosition(): void {
-        let index_target_node: number=g_position_cursor_and_node.node_end;
-        let index_target_word_in_node: number=g_position_cursor_and_node.cursor_end;
+        let index_target_line: number=g_position_cursor_and_node.node_line_end;
+        let index_target_position_in_line: number=g_position_cursor_and_node.cursor_end;
 
         let tree_block_write: TreeWalker=SetTreeWalkerForBlockWrite();
         let current_node: Node | null;
-        let count_index_node: number=0;
+        let count_index_line: number=0;
 
         while((current_node=tree_block_write?.nextNode())){
-            if(count_index_node==index_target_node){
+            // L(current_node);
+            // L(index_target_line);
+            // L(count_index_line);
+            if(count_index_line==index_target_line){
+                let list_children_node: ChildNode[] = Array.from(current_node.childNodes);
+                let list_children_node_length: number=list_children_node.length;
+
+                let current_node_text: Text|null;
+                let position_in_node: number;
+                if(list_children_node_length==1 && list_children_node[0] instanceof Text){
+                    current_node_text=list_children_node[0];
+                    position_in_node=index_target_position_in_line;
+                }
+                else{
+                    const find_one_target_node=FindOneTargetNodeFromArrNodes(list_children_node, index_target_position_in_line);
+                    current_node_text = find_one_target_node.node;
+                    position_in_node=find_one_target_node.pos;
+                }
+                // L(current_node_text);
+                // L(position_in_node);
+
                 let new_range: Range=document.createRange();
                 new_range.collapse(true);
-                new_range.setStart(current_node, index_target_word_in_node);
+
+
+                if(current_node_text!=null){
+                    new_range.setStart(current_node_text, position_in_node);
+                }
 
                 let select_el = window.getSelection();
                 if(select_el){
@@ -362,8 +343,47 @@
                 }
                 return;
             }
-            count_index_node++;
+            count_index_line++;
         }
+    }
+
+    // Recursive search for target subnodes
+    function FindOneTargetNodeFromArrNodes(list_children_node: ChildNode[], g_pos: number): {node: Text|null; pos: number} {
+        L(list_children_node);
+        L(g_pos);
+        let count_symbol_line: number=0;
+        for(var node_children of list_children_node)
+        {
+            let node_children_length: number=node_children.textContent?.length ?? 0;
+            count_symbol_line+=node_children_length;
+            if(count_symbol_line>=g_pos){
+                count_symbol_line-=node_children_length;
+                let list_tow_children_node: ChildNode[] = Array.from(node_children.childNodes);
+                if(list_tow_children_node.length!=1)
+                {
+                    FindOneTargetNodeFromArrNodes(list_tow_children_node, g_pos-count_symbol_line);
+                }
+                else
+                {
+                    if(node_children instanceof Text)
+                    {
+                        return {node: node_children, pos: g_pos-count_symbol_line};
+                    }
+                    else{
+                        // while(true){
+                        //     let last_loop_node: ChildNode[]=Array.from(node_children.childNodes);
+                        //     let last_loop_node_length: number=last_loop_node.length;
+                        //     if(last_loop_node_length>1){
+                        //         FindOneTargetNodeFromArrNodes(list_tow_children_node, g_pos-count_symbol_line);
+                        //     }
+                        // }
+                        FindOneTargetNodeFromArrNodes(list_tow_children_node, g_pos-count_symbol_line);
+                    }
+                }
+            }
+        }
+
+        return {node: null, pos: g_pos};
     }
 
     //------------------------------------------------------------------------------------------------------------------------------------
@@ -665,8 +685,8 @@
         </div> -->
 
         <!-- <div>Title 1</div><div>pop</div><div>kik</div><div>xcx</div><div><br></div><div>Title 2</div><div>loli</div><div>:)</div><div><br></div><div>Title 3</div><div>up &amp; down</div><div><br></div><div>@End</div> -->
-
-        <div>Myths are ancient, timeless tales,</div><div><br></div><div>Of gods and heroes, monsters, and whales.</div><div><br></div><div>They tried to explain the world's creation,</div><div>And <span style="font-weight: 600">teach</span> a les-son to every nation.</div><div>More than just stories from long ago,</div><div>They show us truths that we all know.</div>
+        <div>Myths are ancient, timeless tales,</div><div><br></div><div>Of gods and heroes, monsters, and whales.</div><div><br></div><div>They tried to explain the world's creation,</div><div><span style="font-weight: 600">Non-fiction</span></div><div><span style="font-weight: 600">And</span> <span style="font-weight: 600"> teach a <span style="font-weight: 800">les-son to </span> every</span> nation.</div><div>More <span style="font-weight: 600"><span style="font-weight: 600">than <span style="font-weight: 800">just</span> stories <span style="font-weight: 600">from</span></span></span> long ago,</div><div>They show us truths that we all know.</div>
+        <!-- <div>Myths are ancient, timeless tales,</div><div><br></div><div>Of gods and heroes, monsters, and whales.</div><div><br></div><div>They tried to explain the world's creation,</div><div><span style="font-weight: 600">teach</span></div><div>And teach a les-son to every nation.</div><div>More than just stories from long ago,</div><div>They show us truths that we all know.</div> -->
     </div>
 
     <input
