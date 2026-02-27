@@ -9,35 +9,35 @@
     /*=== Interface ====================================*/
 
 
-    //==============================================================================================
-    //================================================================================ Load Page ===
-    function LoadElementDOM(): void {
+    //==============================================================================================================
+    //================================================================================ Setting global parameters ===
+    onMount(()=>{ //LoadElementDOM
+        window.addEventListener("keydown", CheckHotkey);
         g_block_write_El = document.querySelector(".block_write") as HTMLDivElement;
         g_block_console_El = document.querySelector(".block_console") as HTMLInputElement;
-        g_tree_block_write=SetTreeWalkerForBlockWrite();
-        // g_block_console_El.addEventListener("keydown", EnteredCommandIntBlockConsole);
-    }
-    onMount(LoadElementDOM);
+        // g_tree_block_write=SetTreeWalkerForBlockWrite();
+        g_block_console_El.addEventListener("keydown", EnteredCommandIntBlockConsole);
+    })
 
-    function SetTreeWalkerForBlockWrite(): TreeWalker{
-        return document.createTreeWalker(
-            g_block_write_El,
-            NodeFilter.SHOW_ELEMENT,
-            {
-                acceptNode(node) {
-                    if(node instanceof HTMLDivElement){
-                        if(node.parentNode==g_block_write_El){
-                            return NodeFilter.FILTER_ACCEPT
-                        }
-                        else return NodeFilter.FILTER_REJECT;
-                    }
-                    else{
-                        return NodeFilter.FILTER_REJECT;
-                    }
-                }
-            }
-        );
-    }
+    // function SetTreeWalkerForBlockWrite(): TreeWalker{
+    //     return document.createTreeWalker(
+    //         g_block_write_El,
+    //         NodeFilter.SHOW_ELEMENT,
+    //         {
+    //             acceptNode(node) {
+    //                 if(node instanceof HTMLDivElement){
+    //                     if(node.parentNode==g_block_write_El){
+    //                         return NodeFilter.FILTER_ACCEPT
+    //                     }
+    //                     else return NodeFilter.FILTER_REJECT;
+    //                 }
+    //                 else{
+    //                     return NodeFilter.FILTER_REJECT;
+    //                 }
+    //             }
+    //         }
+    //     );
+    // }
     
     //===========================================================================================================
     //================================================================================ Hotkey & Walk Tree DOM === 
@@ -58,6 +58,8 @@
             {
                 SetLocalRangBlockWrite();
                 g_block_console_El.focus();
+                //TEST
+                ConvertWordToBoldFont();
             }
             else if(block_active!.className.slice(0, "block_console".length)=="block_console" || block_active==null){
                 g_block_write_El.focus();
@@ -69,7 +71,6 @@
             }
         }
     }
-    window.addEventListener("keydown", CheckHotkey);
 
     function SetLocalRangBlockWrite(): void{
         const selection = window.getSelection();
@@ -89,73 +90,193 @@
 
     }
 
+    function GetEdgeLineElement(edge_node: string): HTMLElement | null{
+        let local_current_node: Node;
+        if(edge_node=="start"){
+            local_current_node=g_local_rang_block_write.startContainer as HTMLElement;
+        }
+        else if(edge_node=="end"){
+            local_current_node=g_local_rang_block_write.endContainer as HTMLElement;
+        }
+        else{
+            return null;
+        }
+        
+        let local_current_element: HTMLElement=local_current_node.parentElement as HTMLElement;
+        let previous_element: HTMLElement=local_current_element;
+        let current_element: HTMLElement=local_current_element;
+        let target_element: HTMLElement=local_current_element;
+        
+        if (
+            local_current_element!.className.slice(0, "block_write".length)=="block_write" || 
+            local_current_element!.className.slice(0, "record_field".length)=="record_field"
+        ){ return null; }
+
+        // Finding a line element
+        while(true)
+        {
+            current_element=previous_element.parentElement as HTMLElement;
+            if(current_element!.className.slice(0, "block_write".length)=="block_write"){
+                target_element=previous_element;
+                break;
+            }
+            previous_element=current_element;
+        }
+
+        return target_element;
+    }
+    
     //-----------------------------------------------------------------------------------------------------------------------
     //-------------------------------------------------------------------------------- Enter Text Into Block Mini Console ---
     function EnteredCommandIntBlockConsole(event: KeyboardEvent): void {
         if(event.code!=="Enter") return;
-        
+
         event.preventDefault();
         event.stopPropagation();
 
-        let wit_console_command: string = g_block_console_El.value;
-
-        /*==============================================*/
-        /*============ Header of N-th order ============*/
-        /*==============================================*/
-        if(wit_console_command[0]==="h"){
+        let console_content: string=g_block_console_El.value;
+        if(console_content[0]=="h"){
             /*----- <h1>...<h6> -----*/
             if(
-                wit_console_command.length === 2 &&
-                ["/", "1","2","3","4","5","6"].includes(wit_console_command[1])
+                console_content.length === 2 &&
+                ["/", "1","2","3","4","5","6"].includes(console_content[1])
             ){
-                HandleFuncConvert(ConvertLineTextToHeader, wit_console_command[1]);
-            }
-        }
-        /*==============================*/
-        /*============ List ============*/
-        /*==============================*/
-        else if(wit_console_command[0]==="l"){
-            /*----- dot, number -----*/
-            if(
-                wit_console_command.length === 2 &&
-                ["/", "d", "n"].includes(wit_console_command[1])
-            ){
-                HandleFuncConvert(ConvertLineTextToList, wit_console_command[1]);
-            }
-        }
-        /*==================================*/
-        /*============ New line ============*/
-        /*==================================*/
-        else if(wit_console_command.slice(0,2)==="nl"){
-            /*----- dot, number -----*/
-            if(wit_console_command.length <= 2){
-                HandleFuncConvert(ConvertLineTextToAddNewLine, "1");
-            }
-            else{
-                HandleFuncConvert(ConvertLineTextToAddNewLine, wit_console_command[2]);
-            }
- 
-        }
-        /*=======================================================*/
-        /*============ Text decoration: bold, italic ============*/
-        /*=======================================================*/
-        else if(wit_console_command.slice(0,2)==="td"){
-            // else if(wit_console_command[0]==="t"){
-            /*----- bold -----*/
-            if(["b", "i", "u"].includes(wit_console_command[2])){
-                HandleFuncConvert(ConvertWordsAddTextDecoration, wit_console_command[2]);
-            }
-        }
-        /*======================================*/
-        /*============ Delete Style ============*/
-        /*======================================*/
-        else if(wit_console_command[0]==="/"){
-            if(wit_console_command.length===1){
-                HandleFuncConvert(ConvertLineTextDeleteStyle);
+                ConvertLineTextToHeader(console_content[1]);
             }
         }
 
-        SelectFocusElementSetVarTreeAndCurPos("block_write");
+        // if(event.code!=="Enter") return;
+        
+        // event.preventDefault();
+        // event.stopPropagation();
+
+        // let wit_console_command: string = g_block_console_El.value;
+
+        // /*==============================================*/
+        // /*============ Header of N-th order ============*/
+        // /*==============================================*/
+        // if(wit_console_command[0]==="h"){
+        //     /*----- <h1>...<h6> -----*/
+        //     if(
+        //         wit_console_command.length === 2 &&
+        //         ["/", "1","2","3","4","5","6"].includes(wit_console_command[1])
+        //     ){
+        //         HandleFuncConvert(ConvertLineTextToHeader, wit_console_command[1]);
+        //     }
+        // }
+        // /*==============================*/
+        // /*============ List ============*/
+        // /*==============================*/
+        // else if(wit_console_command[0]==="l"){
+        //     /*----- dot, number -----*/
+        //     if(
+        //         wit_console_command.length === 2 &&
+        //         ["/", "d", "n"].includes(wit_console_command[1])
+        //     ){
+        //         HandleFuncConvert(ConvertLineTextToList, wit_console_command[1]);
+        //     }
+        // }
+        // /*==================================*/
+        // /*============ New line ============*/
+        // /*==================================*/
+        // else if(wit_console_command.slice(0,2)==="nl"){
+        //     /*----- dot, number -----*/
+        //     if(wit_console_command.length <= 2){
+        //         HandleFuncConvert(ConvertLineTextToAddNewLine, "1");
+        //     }
+        //     else{
+        //         HandleFuncConvert(ConvertLineTextToAddNewLine, wit_console_command[2]);
+        //     }
+ 
+        // }
+        // /*=======================================================*/
+        // /*============ Text decoration: bold, italic ============*/
+        // /*=======================================================*/
+        // else if(wit_console_command.slice(0,2)==="td"){
+        //     // else if(wit_console_command[0]==="t"){
+        //     /*----- bold -----*/
+        //     if(["b", "i", "u"].includes(wit_console_command[2])){
+        //         HandleFuncConvert(ConvertWordsAddTextDecoration, wit_console_command[2]);
+        //     }
+        // }
+        // /*======================================*/
+        // /*============ Delete Style ============*/
+        // /*======================================*/
+        // else if(wit_console_command[0]==="/"){
+        //     if(wit_console_command.length===1){
+        //         HandleFuncConvert(ConvertLineTextDeleteStyle);
+        //     }
+        // }
+
+        // SelectFocusElementSetVarTreeAndCurPos("block_write");
+        g_block_console_El.value=""
+        g_block_write_El.focus();
+        SetCursorInBlockWrite();
+    }
+
+
+    //======================================================================================================
+    //================================================================================ Convert Line Text ===
+    function ConvertLineTextToHeader(name_flag: string): void {
+        var target_element: HTMLElement | null = GetEdgeLineElement("start");
+        if(target_element==null) return;
+        // let start_current_node: Node=g_local_rang_block_write.startContainer as HTMLElement;
+        // let start_current_element: HTMLElement=start_current_node.parentElement as HTMLElement;
+        // let previous_element: HTMLElement=start_current_element;
+        // let current_element: HTMLElement=start_current_element;
+        // let target_element: HTMLElement=start_current_element;
+        
+        // if (
+        //     start_current_element!.className.slice(0, "block_write".length)=="block_write" || 
+        //     start_current_element!.className.slice(0, "record_field".length)=="record_field"
+        // ){ return; }
+
+        // // Finding a line element
+        // while(true)
+        // {
+        //     current_element=previous_element.parentElement as HTMLElement;
+        //     if(current_element!.className.slice(0, "block_write".length)=="block_write"){
+        //         target_element=previous_element;
+        //         break;
+        //     }
+        //     previous_element=current_element;
+        // }
+
+        if(name_flag==="/"){
+            target_element.style.fontSize = "16px";
+            target_element.style.fontWeight = "300";
+        }
+        else if(name_flag==="1"){
+            target_element.style.fontSize = "40px";
+            target_element.style.fontWeight = "600";
+        }
+        else if(name_flag==="2"){
+            target_element.style.fontSize = "32px";
+            target_element.style.fontWeight = "600";
+        }
+        else if(name_flag==="3"){
+            target_element.style.fontSize = "24px";
+            target_element.style.fontWeight = "600";
+        }
+        else if(name_flag==="4"){
+            target_element.style.fontSize = "20px";
+            target_element.style.fontWeight = "600";
+        }
+        else if(name_flag==="5"){
+            target_element.style.fontSize = "16px";
+            target_element.style.fontWeight = "600";
+        }
+        else if(name_flag==="6"){
+            target_element.style.fontSize = "14px";
+            target_element.style.fontWeight = "600";
+        }
+    }
+
+
+    //=======================================================================================================
+    //================================================================================ Convert Words Text ===
+    function ConvertWordToBoldFont(){
+        
     }
 
 
