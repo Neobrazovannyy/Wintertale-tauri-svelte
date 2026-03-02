@@ -1,16 +1,16 @@
 <script lang="ts">
+    /* WARNING, ERROR, SHOULD */
     import { onMount } from "svelte";
     let g_block_write_El: HTMLDivElement;
     let g_block_console_El: HTMLInputElement;
-    let g_tree_block_write: TreeWalker;
     let g_local_rang_block_write: Range;
 
     /*==================================================*/
     /*=== Interface ====================================*/
 
 
-    //==============================================================================================================
-    //================================================================================ Setting global parameters ===
+    //================================================================================================
+    //================================================================== Setting global parameters ===
     onMount(()=>{ //LoadElementDOM
         window.addEventListener("keydown", CheckHotkey);
         g_block_write_El = document.querySelector(".block_write") as HTMLDivElement;
@@ -56,10 +56,8 @@
             
             if(block_active!.className.slice(0, "block_write".length)=="block_write")
             {
-                SetLocalRangBlockWrite();
+                SetGVarLocalRangBlockWrite();
                 g_block_console_El.focus();
-                //TEST
-                ConvertWordToBoldFont();
             }
             else if(block_active!.className.slice(0, "block_console".length)=="block_console" || block_active==null){
                 g_block_write_El.focus();
@@ -69,10 +67,12 @@
                 g_block_write_El.focus();
                 SetCursorInBlockWrite();
             }
+            //TEST
+            ConvertWordToBoldFont_CursorCollapsed();
         }
     }
 
-    function SetLocalRangBlockWrite(): void{
+    function SetGVarLocalRangBlockWrite(): void{
         const selection = window.getSelection();
         g_local_rang_block_write=selection!.getRangeAt(0);
     }
@@ -90,16 +90,10 @@
 
     }
 
-    function GetEdgeLineElement(edge_node: string): HTMLElement | null{
-        let local_current_node: Node;
-        if(edge_node=="start"){
-            local_current_node=g_local_rang_block_write.startContainer as HTMLElement;
-        }
-        else if(edge_node=="end"){
+    function GetEdgeLineElement(edge_node: string): HTMLElement{
+        let local_current_node: Node=g_local_rang_block_write.startContainer as HTMLElement;
+        if(edge_node!="start" && edge_node=="end"){
             local_current_node=g_local_rang_block_write.endContainer as HTMLElement;
-        }
-        else{
-            return null;
         }
         
         let local_current_element: HTMLElement=local_current_node.parentElement as HTMLElement;
@@ -107,10 +101,12 @@
         let current_element: HTMLElement=local_current_element;
         let target_element: HTMLElement=local_current_element;
         
-        if (
-            local_current_element!.className.slice(0, "block_write".length)=="block_write" || 
-            local_current_element!.className.slice(0, "record_field".length)=="record_field"
-        ){ return null; }
+        if (local_current_element!.className.slice(0, "block_write".length)=="block_write"){
+            return local_current_node as HTMLElement;
+        }
+        // else if(local_current_element!.className.slice(0, "record_field".length)=="record_field"){
+        //     return null;
+        // }
 
         // Finding a line element
         while(true)
@@ -125,11 +121,49 @@
 
         return target_element;
     }
+
+    function GetNearbyNoEmptyElements(current_empty_element: HTMLElement, edge_node: string): HTMLElement | null{
+        if(edge_node!="start" && edge_node!="end") return null;
+
+        let walker: TreeWalker=document.createTreeWalker(
+            g_block_write_El,
+            NodeFilter.SHOW_ELEMENT,
+            {
+                acceptNode(node){
+                    if(node.parentNode!=g_block_write_El){
+                        return NodeFilter.FILTER_REJECT;
+                    }
+                    else{
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                }
+            }
+        );
     
-    //-----------------------------------------------------------------------------------------------------------------------
-    //-------------------------------------------------------------------------------- Enter Text Into Block Mini Console ---
+        let FuncWhichWalker: Function;
+        if(edge_node=="start"){
+            FuncWhichWalker = () => walker.nextNode();
+        }
+        else{
+            FuncWhichWalker = () => walker.previousNode();
+        }
+
+        walker.currentNode=current_empty_element as Node;
+    
+        let node: Node | null;
+        while ((node=FuncWhichWalker())){
+            if(node.textContent!=""){
+                return node as HTMLElement;
+            }
+        }
+        return null;
+    }   
+    
+    //=========================================================================================================
+    //================================================================== Enter Text Into Block Mini Console ===
     function EnteredCommandIntBlockConsole(event: KeyboardEvent): void {
         if(event.code!=="Enter") return;
+        if(g_block_write_El.textContent=="") return;
 
         event.preventDefault();
         event.stopPropagation();
@@ -215,32 +249,10 @@
     }
 
 
-    //======================================================================================================
-    //================================================================================ Convert Line Text ===
+    //========================================================================================
+    //================================================================== Convert Line Text ===
     function ConvertLineTextToHeader(name_flag: string): void {
-        var target_element: HTMLElement | null = GetEdgeLineElement("start");
-        if(target_element==null) return;
-        // let start_current_node: Node=g_local_rang_block_write.startContainer as HTMLElement;
-        // let start_current_element: HTMLElement=start_current_node.parentElement as HTMLElement;
-        // let previous_element: HTMLElement=start_current_element;
-        // let current_element: HTMLElement=start_current_element;
-        // let target_element: HTMLElement=start_current_element;
-        
-        // if (
-        //     start_current_element!.className.slice(0, "block_write".length)=="block_write" || 
-        //     start_current_element!.className.slice(0, "record_field".length)=="record_field"
-        // ){ return; }
-
-        // // Finding a line element
-        // while(true)
-        // {
-        //     current_element=previous_element.parentElement as HTMLElement;
-        //     if(current_element!.className.slice(0, "block_write".length)=="block_write"){
-        //         target_element=previous_element;
-        //         break;
-        //     }
-        //     previous_element=current_element;
-        // }
+        var target_element: HTMLElement = GetEdgeLineElement("start");
 
         if(name_flag==="/"){
             target_element.style.fontSize = "16px";
@@ -273,10 +285,163 @@
     }
 
 
-    //=======================================================================================================
-    //================================================================================ Convert Words Text ===
-    function ConvertWordToBoldFont(){
+    //=========================================================================================
+    //================================================================== Convert Words Text ===
+    function ConvertWordToBoldFont_CursorCollapsed(): void{
+        let current_node: Node = g_local_rang_block_write.startContainer;
+        let current_node_text: string | null =current_node.textContent;
+
+        //Check for element content
+        if(current_node_text!.trim().length==0 || current_node_text==null) return;
+
+        let parent_element: Element=current_node.parentElement as Element;
+
+        // let ConvertWord=()=>{}
+
+        //If the node consists of one word
+        if(!current_node_text!.trim().includes(' '))
+        {
+            //If one word is in a node and the node is of the type: "span"
+            if(parent_element instanceof HTMLSpanElement){
+                parent_element.style.fontWeight="600";
+            }
+            //If one word is in a node and the node is of the type: "text"
+            else{
+                let new_el: HTMLSpanElement=document.createElement("span");
+                new_el.style.fontWeight="600";
+                new_el.textContent=current_node_text;
+
+                current_node.parentElement?.replaceChild(new_el, current_node);
+            }
+
+        }
+        //If the selected node contains multiple words
+        else
+        {
+            let pos_cursor: number=g_local_rang_block_write.startOffset;
+            let current_text_node: Text=current_node as Text;
+            let target_text_node: Text;
+
+            /*----- Checking if the cursor is between space characters -----*/
+            let CheckSpaceAroundCursor=(pos: number)=>{
+                return current_node_text[pos]==" " || current_node_text[pos]==undefined;
+            };
+            if(CheckSpaceAroundCursor(pos_cursor-1) && CheckSpaceAroundCursor(pos_cursor)) return;
+
+
+            let list_punctuation_marks: string[]=[".", ",", ";", ":", "\\", "/", "!", "?"];
+            /*----- Punctuation marks selection test -----*/
+            if(list_punctuation_marks.includes(current_node_text[pos_cursor-1]) && CheckSpaceAroundCursor(pos_cursor))
+            {
+                target_text_node= current_text_node.splitText(pos_cursor-1);
+                target_text_node.splitText(1);
+                L(target_text_node);
+
+                return;
+            }
+
+            /*
+                !!! MAKE IT A SEPARATE SEARCH FUNCTION !!!
+            */
+
+            /*----- If the selected node is not empty, not a punctuation mark, then we search for a word -----*/
+            let pos_near_space: number=0;
+
+            let is_first_word: boolean=true;
+            for(let i=pos_cursor-1; i>=0; i--){
+                pos_near_space=i;
+                if(current_node_text[i]==" "){
+                    is_first_word=false;
+                    break;
+                }
+            }
+            if(!is_first_word) pos_near_space+=1;//skip index space
+
+            target_text_node= current_text_node.splitText(pos_near_space); //cut off the beginning
+
+            let target_content: string=target_text_node.textContent.trim();
+            let check_has_space: number=target_content.indexOf(" ");
+
+            //check is the last word
+            if(check_has_space==-1){
+                if(list_punctuation_marks.includes(target_content[target_content.length-1])){
+                    target_text_node.splitText(target_content.length-1);
+                }
+                else{
+                    target_text_node.splitText(target_content.length);
+                }
+            }
+            else{
+                let target_word: string=target_content.substring(0,check_has_space);
+
+                if(list_punctuation_marks.includes(target_word[target_word.length-1])){
+                    target_text_node.splitText(check_has_space-1);
+                }
+                else{
+                    target_text_node.splitText(check_has_space);
+                }
+            }
+
+            // punctuation marks selection test
+            // if(list_punctuation_marks.includes(target_content[0]) && [" ", undefined].includes(target_content[1]))
+            // {
+            //     target_text_node.splitText(1);
+            // }
+            // else
+            // {
+
+            // }
+
+            L(target_text_node);
+            
         
+
+            // let lol = ()=>{
+            //     let current_text_node: Text=current_node as Text;
+            //     let clone_lol: Text=current_text_node.cloneNode() as Text;
+            //     let sub_lol: Text =clone_lol.splitText(pos_near_space)
+            //     L(sub_lol);
+            //     L(sub_lol.textContent.trim().indexOf(" "));
+            //     sub_lol.splitText(sub_lol.textContent.trim().indexOf(" ")+1);
+            //     L(sub_lol);
+            // };
+            // lol();
+        }
+    }
+
+    function ConvertWordToBoldFont_Router(){
+        // Check if the cursor is collapsed
+        if(g_local_rang_block_write.collapsed){
+            ConvertWordToBoldFont_CursorCollapsed
+        }
+
+        let start_edge_line: HTMLElement = GetEdgeLineElement("start");
+        
+        // let end_edge_line: HTMLElement = GetEdgeLineElement("end");
+
+
+        // check cursor or select. True=>"cursor"
+        //start_edge_line==end_edge_line && g_local_rang_block_write.startOffset==g_local_rang_block_write.endOffset 0_0... g_local_rang_block_write.collapsed
+
+
+        // let lol: HTMLElement | null =GetNearbyNoEmptyElements("start");
+        // if()
+
+        // g_local_rang_block_write
+        // let start_current_element: HTMLElement =GetEdgeLineElement("start");
+        // let end_current_element: HTMLElement =GetEdgeLineElement("end");
+        // L(start_current_element as Node);
+        // L(end_current_element?.firstChild);
+
+        // if (start_current_element==null){
+        //     start_current_element=GetNearbyNoEmptyElements("start");
+        // }
+        // if(end_current_element==null){
+        //     end_current_element=GetNearbyNoEmptyElements("end");
+        // }
+
+
+
     }
 
 
@@ -294,6 +459,7 @@
 </script>
 
 
+
 <!-- ! on:paste={when input data}, you need to check the data for special characters! -->
 <div class="record_field">
 
@@ -307,8 +473,10 @@
         </div> -->
 
         <!-- <div>Title 1</div><div>pop</div><div>kik</div><div>xcx</div><div><br></div><div>Title 2</div><div>loli</div><div>:)</div><div><br></div><div>Title 3</div><div>up &amp; down</div><div><br></div><div>@End</div> -->
-        <div>Myths are ancient, timeless tales,</div><div><br></div><div>Of gods and heroes, monsters, and whales.</div><div><br></div><div>They tried to explain the world's creation,</div><div><span style="font-weight: 600">Non-fiction</span></div><div><span style="font-weight: 600">And</span> <span style="font-weight: 600"> teach a <span style="font-weight: 800">les-son to </span> every</span> nation.</div><div>More <span style="font-weight: 600"><span style="font-weight: 600">than <span style="font-weight: 800">just</span> stories <span style="font-weight: 600">from</span></span></span> long ago,</div><div>They show us truths that we all know.</div>
+        <div>Myths are ancient, timeless tales,</div><div><br></div><div>Of gods and heroes, monsters, and whales.</div><div><br></div><div>They tried to explain the world's creation,</div><div><span style="font-weight: 600">Non-fiction</span></div><div><span style="font-weight: 600">And</span> <span style="font-weight: 600"> teach a <span style="font-weight: 800">les-son to </span> every</span> nation.</div><div>More <span style="font-weight: 600"><span style="font-weight: 600">than <span style="font-weight: 800">just</span> stories <span style="font-weight: 600">from</span></span></span> long ago,</div><div>They show us truths that we all know.</div><div><br></div><div><span style="font-weight: 600">Okak</span></div>
         <!-- <div>Myths are ancient, timeless tales,</div><div><br></div><div>Of gods and heroes, monsters, and whales.</div><div><br></div><div>They tried to explain the world's creation,</div><div><span style="font-weight: 600">teach</span></div><div>And teach a les-son to every nation.</div><div>More than just stories from long ago,</div><div>They show us truths that we all know.</div> -->
+        <div>40empire</div>
+        <div>Мороз <i><b>снежком</b></i> <span style="font-weight: 600">укутывал</span>: «Смотри, не <span> замерзай</span>!»</div>
     </div>
 
     <input
