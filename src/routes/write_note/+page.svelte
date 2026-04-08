@@ -1,5 +1,8 @@
 <script lang="ts">
-    /* WARNING, ERROR, SHOULD */
+    /*
+    WARNING, ERROR, SHOULD
+    MAKE_G - make global for personal settings
+    */
     import { onMount } from "svelte";
     let g_block_write_El: HTMLDivElement;
     let g_block_console_El: HTMLInputElement;
@@ -7,7 +10,9 @@
 
     /*==================================================*/
     /*=== Interface ====================================*/
-
+    type RuEnMap ={
+        [key: string]: string
+    }
 
     //================================================================================================
     //================================================================== Setting global parameters ===
@@ -68,7 +73,8 @@
                 SetCursorInBlockWrite();
             }
             //TEST
-            ConvertWordToBoldFont_CursorCollapsed();
+            
+            RouterConvertWordText(ConvertNodeToBoldFont)
         }
     }
 
@@ -162,6 +168,28 @@
     //=========================================================================================================
     //================================================================== Enter Text Into Block Mini Console ===
     function EnteredCommandIntBlockConsole(event: KeyboardEvent): void {
+        const ru_en_map: RuEnMap = {
+            "а":"f","б":",","в":"d","г":"u", "д":"l","е":"t","ё":"`",
+            "ж":";","з":"p","и":"b","й":"q", "к":"r","л":"k","м":"v",
+            "н":"y","о":"j","п":"g","р":"h", "с":"c","т":"n","у":"e",
+            "ф":"a","х":"[","ц":"w","ч":"x", "ш":"i","щ":"o",
+            "ъ":"]","ы":"s","ь":"m","э":"\"","ю":".","я":"z"
+        };
+        setTimeout(()=>{
+            g_block_console_El.value=g_block_console_El.value.replace(/[а-яё]/gi, char=> ru_en_map[char.toLowerCase()]);
+        }, 100); //MAKE_G
+
+        // if(event.ctrlKey && event.code==="KeyB"){
+        //     event.preventDefault();
+        //     event.stopPropagation();
+        //     RouterConvertWordText(ConvertNodeToBoldFont)
+        // }
+        
+        // if(event.ctrlKey && event.code==="KeyZ"){
+        //     event.preventDefault();
+        //     event.stopPropagation();
+        // }
+
         if(event.code!=="Enter") return;
         if(g_block_write_El.textContent=="") return;
 
@@ -169,8 +197,8 @@
         event.stopPropagation();
 
         let console_content: string=g_block_console_El.value;
-        if(console_content[0]=="h"){
-            /*----- <h1>...<h6> -----*/
+        if(console_content[0]=="h")
+        {   /*----- <h1>...<h6> -----*/
             if(
                 console_content.length === 2 &&
                 ["/", "1","2","3","4","5","6"].includes(console_content[1])
@@ -178,69 +206,10 @@
                 ConvertLineTextToHeader(console_content[1]);
             }
         }
-
-        // if(event.code!=="Enter") return;
-        
-        // event.preventDefault();
-        // event.stopPropagation();
-
-        // let wit_console_command: string = g_block_console_El.value;
-
-        // /*==============================================*/
-        // /*============ Header of N-th order ============*/
-        // /*==============================================*/
-        // if(wit_console_command[0]==="h"){
-        //     /*----- <h1>...<h6> -----*/
-        //     if(
-        //         wit_console_command.length === 2 &&
-        //         ["/", "1","2","3","4","5","6"].includes(wit_console_command[1])
-        //     ){
-        //         HandleFuncConvert(ConvertLineTextToHeader, wit_console_command[1]);
-        //     }
-        // }
-        // /*==============================*/
-        // /*============ List ============*/
-        // /*==============================*/
-        // else if(wit_console_command[0]==="l"){
-        //     /*----- dot, number -----*/
-        //     if(
-        //         wit_console_command.length === 2 &&
-        //         ["/", "d", "n"].includes(wit_console_command[1])
-        //     ){
-        //         HandleFuncConvert(ConvertLineTextToList, wit_console_command[1]);
-        //     }
-        // }
-        // /*==================================*/
-        // /*============ New line ============*/
-        // /*==================================*/
-        // else if(wit_console_command.slice(0,2)==="nl"){
-        //     /*----- dot, number -----*/
-        //     if(wit_console_command.length <= 2){
-        //         HandleFuncConvert(ConvertLineTextToAddNewLine, "1");
-        //     }
-        //     else{
-        //         HandleFuncConvert(ConvertLineTextToAddNewLine, wit_console_command[2]);
-        //     }
- 
-        // }
-        // /*=======================================================*/
-        // /*============ Text decoration: bold, italic ============*/
-        // /*=======================================================*/
-        // else if(wit_console_command.slice(0,2)==="td"){
-        //     // else if(wit_console_command[0]==="t"){
-        //     /*----- bold -----*/
-        //     if(["b", "i", "u"].includes(wit_console_command[2])){
-        //         HandleFuncConvert(ConvertWordsAddTextDecoration, wit_console_command[2]);
-        //     }
-        // }
-        // /*======================================*/
-        // /*============ Delete Style ============*/
-        // /*======================================*/
-        // else if(wit_console_command[0]==="/"){
-        //     if(wit_console_command.length===1){
-        //         HandleFuncConvert(ConvertLineTextDeleteStyle);
-        //     }
-        // }
+        else if(console_content[0]=="b")
+        {
+            RouterConvertWordText(ConvertNodeToBoldFont)
+        }
 
         // SelectFocusElementSetVarTreeAndCurPos("block_write");
         g_block_console_El.value=""
@@ -287,42 +256,49 @@
 
     //=========================================================================================
     //================================================================== Convert Words Text ===
-    function ConvertWordToBoldFont_CursorCollapsed(): void{
+    function RouterConvertWordText(ConvertNode: (node: Node)=>void ): void{
         let current_node: Node = g_local_rang_block_write.startContainer;
         let current_node_text: string | null =current_node.textContent;
 
         //Check for element content
         if(current_node_text!.trim().length==0 || current_node_text==null) return;
+        l("current Node: " + current_node_text);
 
         let parent_element: Element=current_node.parentElement as Element;
 
-        // let ConvertWord=()=>{}
-
-        //If the node consists of one word
-        if(!current_node_text!.trim().includes(' '))
+        //If the "Current Node" consists of ONE word
+        if(!current_node_text!.trim().includes(' ') && !parent_element.textContent!.trim().includes(' '))
         {
+            l("The \"Current Node\" consists of ONE word");
             //If one word is in a node and the node is of the type: "span"
-            if(parent_element instanceof HTMLSpanElement){
-                parent_element.style.fontWeight="600";
+            if(parent_element instanceof HTMLSpanElement)
+            {
+                if(ConvertNode==ConvertNodeToBoldFont){
+                    parent_element.style.fontWeight="600";
+                }
             }
             //If one word is in a node and the node is of the type: "text"
-            else{
-                let new_el: HTMLSpanElement=document.createElement("span");
-                new_el.style.fontWeight="600";
-                new_el.textContent=current_node_text;
-
-                current_node.parentElement?.replaceChild(new_el, current_node);
+            else
+            {
+                ConvertNode(current_node)
             }
 
         }
-        //If the selected node contains multiple words
+        //If the "Current Node" contains MULTIPLE words. A multi-word "Current Node" has THREE types:
+        /*
+            1) If the cursor is in an empty space;
+            2) If the cursor is at a punctuation mark;
+            3) If the cursor is at (on) a word.
+        */
         else
         {
+            l("The \"Current Node\" consists of MULTIPLE word");
+
             let pos_cursor: number=g_local_rang_block_write.startOffset;
             let current_text_node: Text=current_node as Text;
             let target_text_node: Text;
 
-            /*----- Checking if the cursor is between space characters -----*/
+            /*----- 1) Checking if the cursor is between space characters -----*/
             let CheckSpaceAroundCursor=(pos: number)=>{
                 return current_node_text[pos]==" " || current_node_text[pos]==undefined;
             };
@@ -330,89 +306,69 @@
 
 
             let list_punctuation_marks: string[]=[".", ",", ";", ":", "\\", "/", "!", "?"];
-            /*----- Punctuation marks selection test -----*/
+
+            /*----- 2) Punctuation marks selection test -----*/
             if(list_punctuation_marks.includes(current_node_text[pos_cursor-1]) && CheckSpaceAroundCursor(pos_cursor))
             {
-                target_text_node= current_text_node.splitText(pos_cursor-1);
+                target_text_node=current_text_node.splitText(pos_cursor-1);
                 target_text_node.splitText(1);
-                L(target_text_node);
-
-                return;
             }
-
-            /*
-                !!! MAKE IT A SEPARATE SEARCH FUNCTION !!!
-            */
-
-            /*----- If the selected node is not empty, not a punctuation mark, then we search for a word -----*/
-            let pos_near_space: number=0;
-
-            let is_first_word: boolean=true;
-            for(let i=pos_cursor-1; i>=0; i--){
-                pos_near_space=i;
-                if(current_node_text[i]==" "){
-                    is_first_word=false;
-                    break;
+            /*----- 3) If the selected node is not empty, not a punctuation mark, then we search for a word -----*/
+            else
+            {
+                let pos_near_space: number=0;
+    
+                let is_first_word: boolean=true;
+                for(let i=pos_cursor-1; i>=0; i--){
+                    pos_near_space=i;
+                    if(current_node_text[i]==" "){
+                        is_first_word=false;
+                        break;
+                    }
                 }
-            }
-            if(!is_first_word) pos_near_space+=1;//skip index space
-
-            target_text_node= current_text_node.splitText(pos_near_space); //cut off the beginning
-
-            let target_content: string=target_text_node.textContent.trim();
-            let check_has_space: number=target_content.indexOf(" ");
-
-            //check is the last word
-            if(check_has_space==-1){
-                if(list_punctuation_marks.includes(target_content[target_content.length-1])){
-                    target_text_node.splitText(target_content.length-1);
+                if(!is_first_word) pos_near_space+=1;//skip index space
+    
+                target_text_node=current_text_node.splitText(pos_near_space); //cut off the beginning
+    
+                let target_content: string=target_text_node.textContent.trim();
+                let check_has_space: number=target_content.indexOf(" ");
+    
+                //check is the last word
+                if(check_has_space==-1){
+                    if(list_punctuation_marks.includes(target_content[target_content.length-1])){
+                        target_text_node.splitText(target_content.length-1);
+                    }
+                    else{
+                        target_text_node.splitText(target_content.length);
+                    }
                 }
                 else{
-                    target_text_node.splitText(target_content.length);
-                }
-            }
-            else{
-                let target_word: string=target_content.substring(0,check_has_space);
-
-                if(list_punctuation_marks.includes(target_word[target_word.length-1])){
-                    target_text_node.splitText(check_has_space-1);
-                }
-                else{
-                    target_text_node.splitText(check_has_space);
+                    let target_word: string=target_content.substring(0,check_has_space);
+    
+                    if(list_punctuation_marks.includes(target_word[target_word.length-1])){
+                        target_text_node.splitText(check_has_space-1);
+                    }
+                    else{
+                        target_text_node.splitText(check_has_space);
+                    }
                 }
             }
 
-            // punctuation marks selection test
-            // if(list_punctuation_marks.includes(target_content[0]) && [" ", undefined].includes(target_content[1]))
-            // {
-            //     target_text_node.splitText(1);
-            // }
-            // else
-            // {
-
-            // }
-
-            L(target_text_node);
-            
-        
-
-            // let lol = ()=>{
-            //     let current_text_node: Text=current_node as Text;
-            //     let clone_lol: Text=current_text_node.cloneNode() as Text;
-            //     let sub_lol: Text =clone_lol.splitText(pos_near_space)
-            //     L(sub_lol);
-            //     L(sub_lol.textContent.trim().indexOf(" "));
-            //     sub_lol.splitText(sub_lol.textContent.trim().indexOf(" ")+1);
-            //     L(sub_lol);
-            // };
-            // lol();
+            ConvertNode(target_text_node)
         }
+    }
+
+    function ConvertNodeToBoldFont(target_node: Node): void{
+        let new_el: HTMLSpanElement=document.createElement("span");
+        new_el.style.fontWeight="600";
+        new_el.textContent=target_node.textContent;
+
+        target_node.parentElement?.replaceChild(new_el, target_node);
     }
 
     function ConvertWordToBoldFont_Router(){
         // Check if the cursor is collapsed
         if(g_local_rang_block_write.collapsed){
-            ConvertWordToBoldFont_CursorCollapsed
         }
 
         let start_edge_line: HTMLElement = GetEdgeLineElement("start");
@@ -430,8 +386,6 @@
         // g_local_rang_block_write
         // let start_current_element: HTMLElement =GetEdgeLineElement("start");
         // let end_current_element: HTMLElement =GetEdgeLineElement("end");
-        // L(start_current_element as Node);
-        // L(end_current_element?.firstChild);
 
         // if (start_current_element==null){
         //     start_current_element=GetNearbyNoEmptyElements("start");
@@ -448,9 +402,9 @@
     //=========================================================================================================================
     //================================================================================ Helper functions (can be safely removed)
     
-    function L(variable: unknown): void {
+    let l = function(variable: unknown): void{
         console.log(variable);
-    }
+    };
 
     function LV(description: string="", variable: unknown=""): void {
         console.log(`${description}: ${variable}`);
@@ -473,10 +427,13 @@
         </div> -->
 
         <!-- <div>Title 1</div><div>pop</div><div>kik</div><div>xcx</div><div><br></div><div>Title 2</div><div>loli</div><div>:)</div><div><br></div><div>Title 3</div><div>up &amp; down</div><div><br></div><div>@End</div> -->
-        <div>Myths are ancient, timeless tales,</div><div><br></div><div>Of gods and heroes, monsters, and whales.</div><div><br></div><div>They tried to explain the world's creation,</div><div><span style="font-weight: 600">Non-fiction</span></div><div><span style="font-weight: 600">And</span> <span style="font-weight: 600"> teach a <span style="font-weight: 800">les-son to </span> every</span> nation.</div><div>More <span style="font-weight: 600"><span style="font-weight: 600">than <span style="font-weight: 800">just</span> stories <span style="font-weight: 600">from</span></span></span> long ago,</div><div>They show us truths that we all know.</div><div><br></div><div><span style="font-weight: 600">Okak</span></div>
+        <div>Myths are ancient, timeless tales,</div><div><br></div><div>Of gods and heroes, monsters, and whales.</div><div><br></div><div>They <span style="text-decoration: underline;">tried to <span style="font-style: italic">explain</span> the <span style="font-style: italic">world's</span> creation</span>,</div><div><span style="font-weight: 600">Non-fiction</span></div><div><span style="font-weight: 600">And</span> <span style="font-weight: 600"> teach a <span style="font-weight: 800">les-son to </span> every</span> nation.</div><div>More <span style="font-weight: 600"><span style="font-weight: 600">than <span style="font-weight: 800">just</span> stories <span style="font-weight: 600">from</span></span></span> long ago,</div><div>They show us truths that we all know.</div><div><br></div><div><span style="font-weight: 600">Okak</span></div>
         <!-- <div>Myths are ancient, timeless tales,</div><div><br></div><div>Of gods and heroes, monsters, and whales.</div><div><br></div><div>They tried to explain the world's creation,</div><div><span style="font-weight: 600">teach</span></div><div>And teach a les-son to every nation.</div><div>More than just stories from long ago,</div><div>They show us truths that we all know.</div> -->
         <div>40empire</div>
         <div>Мороз <i><b>снежком</b></i> <span style="font-weight: 600">укутывал</span>: «Смотри, не <span> замерзай</span>!»</div>
+        <div>Вы всегда <span>благородны, Неизменно <span>прекрасны, От </span> стремлений свободны</span>, К человеку бесстрастны.</div>
+
+
     </div>
 
     <input
